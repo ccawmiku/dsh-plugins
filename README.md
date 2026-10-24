@@ -1,5 +1,7 @@
 # DSH 聊天进度与公开思考翻译插件
 
+GitHub 仓库：[ccawmiku/dsh-conversation-plugins](https://github.com/ccawmiku/dsh-conversation-plugins)（私有）。
+
 本项目交付两个可以分别安装、启用和移除的插件，源码、文档和预构建安装包均保存在本仓库；没有修改 DeepSeek Harness 核心，也没有调用真实模型 API。
 
 | 插件 | 做什么 | 额外模型请求 |
