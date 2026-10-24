@@ -3,6 +3,7 @@ import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 
 export const REQUEST = 'plugin:dsh-reasoning-translation/request'
 export const RESULT = 'plugin:dsh-reasoning-translation/result'
+export const PROGRESS = 'plugin:dsh-reasoning-translation/progress'
 export const NOTICE = 'plugin:dsh-reasoning-translation/notice'
 
 /** A translation is durably recorded before the auxiliary model receives its source. */
@@ -27,6 +28,13 @@ export interface TranslationResult {
   text: string
 }
 
+export interface TranslationProgress {
+  version: 1
+  id: string
+  status: 'translating'
+  text: string
+}
+
 /** A local resource limit skipped translation; it is not a model-generated announcement. */
 export interface TranslationNotice {
   version: 1
@@ -40,6 +48,7 @@ declare module '@deepseek-ai/dsh-session/types' {
   interface PluginRecordMap {
     'plugin:dsh-reasoning-translation/request': TranslationRequest
     'plugin:dsh-reasoning-translation/result': TranslationResult
+    'plugin:dsh-reasoning-translation/progress': TranslationProgress
     'plugin:dsh-reasoning-translation/notice': TranslationNotice
   }
 }
@@ -55,7 +64,7 @@ export interface TranslationRow {
   language: string
   source: string
   text: string
-  status: TranslationResult['status'] | 'pending' | 'limited'
+  status: TranslationResult['status'] | 'pending' | 'limited' | 'translating'
 }
 
 type UnknownRecord = Record<string, unknown>
@@ -73,6 +82,7 @@ function string(value: unknown, max: number): value is string {
 export function parseRecord(event: unknown):
   | { kind: 'request'; seq: SessionSeq; data: TranslationRequest }
   | { kind: 'result'; seq: SessionSeq; data: TranslationResult }
+  | { kind: 'progress'; seq: SessionSeq; data: TranslationProgress }
   | { kind: 'notice'; seq: SessionSeq; data: TranslationNotice }
   | undefined {
   if (!object(event) || event.ignorable !== true || !coordinate(event.seq) || !object(event.data)) return
@@ -80,6 +90,10 @@ export function parseRecord(event: unknown):
   if (d.version !== 1 || !string(d.id, 512) || !d.id) return
   // SessionSeq is already validated above; no lossy conversion is performed.
   const seq = event.seq as SessionSeq
+  if (event.type === PROGRESS) {
+    if (d.status !== 'translating' || !string(d.text, 262144)) return
+    return { kind: 'progress', seq, data: { version: 1, id: d.id, status: 'translating', text: d.text } }
+  }
   if (event.type === RESULT) {
     if (!['translated', 'failed', 'cancelled', 'unconfirmed'].includes(String(d.status)) || !string(d.text, 262144)) return
     return { kind: 'result', seq, data: { version: 1, id: d.id, status: d.status as TranslationResult['status'], text: d.text } }

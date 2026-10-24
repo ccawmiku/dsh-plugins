@@ -9,7 +9,7 @@ const base = resolve(upstream, 'tsconfig.base.json')
 const parsed = ts.readConfigFile(base, ts.sys.readFile)
 if (parsed.error) throw new Error(ts.flattenDiagnosticMessageText(parsed.error.messageText, '\n'))
 const paths = Object.fromEntries(Object.entries(parsed.config.compilerOptions.paths)
-  .map(([key, values]) => [key, values.map(value => resolve(upstream, value))]))
+  .map(([key, values]) => [key, values.map(value => resolve(upstream, value).replaceAll('\\', '/'))]))
 // The vendored framework intentionally has its own compiler settings. Use its real emitted declarations,
 // rather than rechecking vendor implementation under this plugin's stricter settings.
 for (const [key, values] of Object.entries(paths)) {
@@ -32,7 +32,7 @@ mkdirSync('.checks', { recursive: true })
 for (const [face, files] of Object.entries({
   host: ['packages/dsh-progress-commentary/src/index.ts', 'packages/dsh-reasoning-translation/src/index.ts',
     'tests/engine.spec.ts', 'tests/model.spec.ts', 'tests/progress.spec.ts', 'tests/loop.spec.ts', 'tests/packed.spec.ts'],
-  client: ['packages/dsh-reasoning-translation/src/client.ts', 'tests/presentation.spec.ts'],
+  client: ['packages/dsh-reasoning-translation/src/client.ts', 'tests/presentation.spec.ts', 'tests/settings.spec.tsx'],
 })) {
   const config = {
     compilerOptions: { target: 'ES2024', module: 'ESNext', moduleResolution: 'bundler', strict: true,

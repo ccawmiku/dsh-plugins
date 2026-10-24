@@ -10,7 +10,10 @@ const sums = []
 for (const name of ['dsh-progress-commentary', 'dsh-reasoning-translation']) {
   const directory = resolve('packages', name)
   for (const file of ['lib/index.js', 'cordis.patch.yml', 'README.md', 'LICENSE']) await readFile(`${directory}/${file}`)
-  const packed = spawnSync('npm', ['pack', directory, '--ignore-scripts', '--pack-destination', resolve('dist'), '--json'], { encoding: 'utf8' })
+  const npm = process.env.npm_execpath
+  const packed = npm
+    ? spawnSync(process.execPath, [npm, 'pack', directory, '--ignore-scripts', '--pack-destination', resolve('dist'), '--json'], { encoding: 'utf8' })
+    : spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['pack', directory, '--ignore-scripts', '--pack-destination', resolve('dist'), '--json'], { encoding: 'utf8', shell: process.platform === 'win32' })
   if (packed.status !== 0) throw new Error(packed.stderr)
   const [entry] = JSON.parse(packed.stdout)
   const files = entry.files.map(item => item.path)

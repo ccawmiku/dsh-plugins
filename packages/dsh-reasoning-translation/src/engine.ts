@@ -1,4 +1,4 @@
-/** Bounded translation queue and paragraph feeder, independent of Cordis and model providers. */
+/** Serialized translation queue and paragraph feeder, independent of Cordis and model providers. */
 import type { TranslationRequest, TranslationResult } from './records.ts'
 
 /** One immutable configuration snapshot for a source fragment. */
@@ -23,17 +23,16 @@ export interface TranslationJob {
   storageFailed(): void
 }
 
-/** Serialized auxiliary calls with bounded admission and no retries. */
+/** Serialized auxiliary calls, with no count limit and no automatic retries. */
 export class TranslationQueue {
   private readonly pending = new Set<Promise<void>>()
   private tail: Promise<void> = Promise.resolve()
   private disposed = false
   private readonly lifetime = new AbortController()
-  constructor(private readonly maxPending: number) {}
 
   /** Reserve one queue slot; false means no request was sent or recorded. */
   enqueue(job: TranslationJob): boolean {
-    if (this.disposed || this.pending.size >= this.maxPending) return false
+    if (this.disposed) return false
     // Source frames arrive outside Session publication. Reserve the Chat position now, not when a
     // slow translation frees the queue, which could otherwise place this source in a later turn.
     try { job.record() } catch (_error) { job.storageFailed(); return false }
@@ -90,25 +89,21 @@ export class TranslationQueue {
   }
 }
 
-/** A source prefix bounded independently of the total reasoning stream. */
+/** Split the entire source into individually bounded requests. */
 export class ParagraphFeed {
   private pending = ''
   private observed = ''
   private offset = 0
   private stopped = false
-  constructor(private readonly maxChars: number, private readonly maxSourceChars: number,
-    private readonly emit: (text: string, offset: number) => boolean,
-    private readonly truncated: () => void = () => {}) {}
+  constructor(private readonly maxChars: number,
+    private readonly emit: (text: string, offset: number) => boolean) {}
 
   /** Feed only publicly emitted reasoning deltas; tool arguments and normal response text never enter. */
   push(text: string): void {
     if (this.stopped) return
-    const room = this.maxSourceChars - this.observed.length
-    const admitted = text.slice(0, room)
-    this.observed += admitted
-    this.pending += admitted
+    this.observed += text
+    this.pending += text
     this.flush(false)
-    if (text.length > room) { this.finish(); this.truncated() }
   }
 
   /** A provider may emit only block-end; reconcile missing trailing deltas without translating prefixes twice. */

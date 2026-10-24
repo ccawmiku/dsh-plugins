@@ -1,74 +1,59 @@
 # DSH 聊天进度与公开思考翻译插件
 
-GitHub 仓库：[ccawmiku/dsh-conversation-plugins](https://github.com/ccawmiku/dsh-conversation-plugins)（私有）。
+源码与安装包：[ccawmiku/dsh-conversation-plugins](https://github.com/ccawmiku/dsh-conversation-plugins)（私有仓库）。两个插件独立安装、启用和卸载，不修改 DSH 核心。
 
-本项目交付两个可以分别安装、启用和移除的插件，源码、文档和预构建安装包均保存在本仓库；没有修改 DeepSeek Harness 核心，也没有调用真实模型 API。
+| 插件 | 当前定位 |
+| --- | --- |
+| `dsh-reasoning-translation` **0.2.0** | 优先维护。将 DSH 已公开的 reasoning 翻译成聊天中的自然段落，作为进度体验的过渡方案 |
+| `dsh-progress-commentary` 0.1.0 | 提示词引导主模型主动说明进度，不增加模型请求；不保证模型遵守 |
 
-| 插件 | 做什么 | 额外模型请求 |
-| --- | --- | --- |
-| `dsh-progress-commentary` | 用 Codex 公开规则引导主模型在复杂任务中主动说明发现与下一步，通过现有聊天流显示 | **不增加**，也不调用第二模型 |
-| `dsh-reasoning-translation` | 把 DSH 已公开输出的 reasoning 片段交给指定的另一模型翻译，在聊天流显示带来源的译文 | **会增加**，有队列、次数、长度与超时限制 |
+## 0.2.0 的变化
 
-翻译和主模型进度是两种内容。译文不会被伪装成主模型进度，也不会加入主模型的输入；原文、工具参数和最终回答保持原样。
+- **正文式展示**：去掉侧边框、卡片缩进、顶部模型名和整体灰化，使用 DSH 原生 Markdown、字体大小与主题颜色。译文逐步出现，仍与工具过程保持来源顺序。
+- **轻量原文入口**：每段下方的小号“思考译文”可展开原文、服务商、模型与目标语言。翻译身份仍清楚可查。
+- **没有翻译条数上限**：取消每轮调用上限、总源文本截断与队列满后丢弃片段。全部新片段顺序排队；旧 `maxCallsPerTurn`、`maxPending` 字段即使留在配置里也不会生效。
+- **设置 → 思考翻译**：直接查看当前模型，从 DSH 已配置模型中选择；也可手动填写服务商路由与模型 ID。开关、模型和目标语言一次保存，新片段立即生效。
+- 修复启用时路由未填就导致插件启动失败的问题。模型列表读取失败时仍能手动配置。
 
-## 兼容范围：安装前先看
+译文保持原意和不确定性，不会改写成虚构的任务进度，也不会加入主模型上下文。原文、工具参数和最终回答保持原样。
 
-验证基线是官方 DSH `master` 的 **`22ddee3792402c3e70ec5f86a63c3e3e895a2f60`**，其源码包版本为 **`0.2.1-rc.3`**，Node 至少 `24.9.0`。2026-10-23 本次检查时，npm 上 `@deepseek-ai/dsh-llm` 的 latest 仍是 `0.0.1-rc.1`。本项目没有声称兼容该旧版桌面程序或所有未来版本；安装清单故意要求精确 DSH 版本，避免静默加载不兼容 API。
+## 兼容范围
 
-**不要为了安装而跳过 DSH 的版本检查。** 若你现在使用 npm 旧版，请等待对应发行版，或使用上述官方提交构建的 DSH；无需维护私有 Fork。相同版本号但不同提交也需要重新验收，尤其是翻译插件用到的实验性记录接口。
+翻译插件清单接受 **DSH `0.2.1-rc.2` 或 `0.2.1-rc.3`**，Node ≥24.9.0。源码类型检查与集成测试固定在官方提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（`0.2.1-rc.3`）；另对本机 DSH NEXT `2.0.19-next` 内置的 `0.2.1-rc.2` 核查了现有接口，桌面验收情况见 [验证记录](docs/VALIDATION.md)。同版本号的其他构建和后续版本仍需重验。
 
-已有的 DSH 官方实验“思考翻译”主要在展开的思考栏中工作，并支持 Bing、Google 与限定的 DeepSeek Flash 路由。本项目新增的是**可配置 DSH 模型＋聊天流译文**，不替换或破坏那个官方功能。两者同时开启会产生各自的翻译请求；通常选择一种即可。
+进度插件 0.1.0 的原清单保持 `0.2.1-rc.3`。不建议为安装而绕过官方版本检查。
 
-## 获取与安装
+DSH 官方实验“思考翻译”主要显示在展开的思考栏中。本项目提供任意已配置模型与聊天流显示。两者同时开启可能分别发送请求，通常选一种即可。
 
-已经构建好的安装包位于 `dist/`：
+## 安装
 
+当前安装包位于 `dist/`：
+
+- `dsh-reasoning-translation-0.2.0.tgz`（推荐优先使用）
 - `dsh-progress-commentary-0.1.0.tgz`
-- `dsh-reasoning-translation-0.1.0.tgz`
 
-将两个文件下载到运行 DSH 的电脑。以下 `/绝对路径/` 必须替换为该电脑上的实际路径，不是云端工作区路径。
-
-### Web／CLI profile
-
-在符合兼容范围的 DSH 环境执行：
+Web／CLI profile：
 
 ```sh
-dsh plugin --profile web add /绝对路径/dsh-progress-commentary-0.1.0.tgz
-dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.1.0.tgz
+dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.2.0.tgz
 ```
 
-重启对应的 Web profile，或让启用的 HMR 应用新插件。进度插件默认开启；翻译插件安装后默认不发请求，必须先配置，再打开其 `enabled`。
+桌面版请使用 DSH 自带的插件管理器安装本地 `.tgz`，避免用另一套 npm DSH 混写桌面 profile。升级后重启 DSH，让 Host 和浏览器入口一起加载新版本。已有模型配置和历史译文保留；历史译文会直接采用新排版，**不会补译旧历史或重新发送已完成请求**。
 
-### 桌面版
+首次安装默认关闭。进入 **设置 → 思考翻译**，选定模型后勾选启用并保存。插件详情仍可编辑相同的实时字段。若早期手工安装在 profile patch 的 `insert` 中又写入了同名翻译插件，请在已装配本包 bundle 的前提下，把这一条改为示例中的顶层 `id` 配置覆盖；否则 DSH 的标准设置编辑器可能拒绝保存。
 
-桌面版使用相同的 Web 聊天组件与插件系统。请在桌面版 **Plugins／插件 → 安装** 中使用安装包的本地路径，并在插件详情中设置。应由桌面版自带的插件管理器或捆绑 CLI 操作其 `desktop` profile，避免用另一套 npm DSH 混写桌面依赖。安装界面、桌面 profile 路径和 GUI 操作尚未在实体桌面环境验收；如果你的版本不接受本地包路径，不要改主程序，先确认版本与其官方安装方式。
+## 翻译配置
 
-## 配置
-
-插件详情的标准配置表单可编辑带 `.volatile()` 的字段，下一次生成／新片段读取新值。其他限额通过 profile patch 修改并重新加载插件。示例见 [examples](examples/)；DSH patch 会替换整行 `config`，未写的字段回到插件默认值。
-
-### 进度说明
-
-`enabled` 默认为 `true`；`language` 默认跟随用户本轮语言；`instructions` 是独立的进度提示词，可在详情中调整。清空 `instructions` 或关闭 `enabled` 都不再注入规则。
-
-想让中间回复在任务完成后仍可见，请在 DSH **设置 → 通用 → 收起后显示的回复** 选择 **全部回复／All replies**。本插件尊重现有显示设置，不擅自覆盖你选的“仅最终回答”。原始中间回复依然保存在 Session 中。
-
-这是一种模型行为引导，不保证每个模型都遵守。特别是 DSH 当前用“是否还有工具调用”判断是否继续；因此提示词要求把进度普通文本与真实工具调用放在同一响应中。只发一句“我开始检查”而不调用工具的模型可能结束回合。本插件不会伪造工具或强制追加另一轮来掩盖这一点。
-
-### 公开思考翻译
-
-先填写 DSH 中已经配置好的 `provider` 和该路由接受的 `model` ID，再开启 `enabled`。例如路由名是 `deepseek` 时，就填写 `deepseek`；兼容 OpenAI 的第三方路由应填写你在 DSH 中实际注册的名称，不是 API 地址，也不是臆测的统一名称。插件复用 DSH 的凭证配置，不提供、不保存、不回显 API key 字段。
+模型下拉菜单来自 DSH 自身的模型目录，按服务商分组。未在目录中公开的自定义模型可手动填写 `provider`、`model`；填写的是 DSH 注册的路由名与模型 ID，不是 API 地址。插件复用现有凭证，没有 API key 字段，也不回显凭证。
 
 ```yaml
 - id: dsh-reasoning-translation
   config:
     enabled: true
-    provider: 你的已配置路由名
-    model: 你的翻译模型ID
+    provider: 已配置的服务商路由
+    model: 翻译模型ID
     targetLanguage: 简体中文
     maxCharsPerCall: 1600
-    maxCallsPerTurn: 8
-    maxPending: 12
     timeoutMs: 45000
     maxOutputTokens: 4096
     maxOutputChars: 16000
@@ -76,64 +61,52 @@ dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.1.0.tgz
 
 | 字段 | 默认 | 含义 |
 | --- | --- | --- |
-| `enabled` | false | 开启后会向所选模型发送公开思考文本，并产生额外费用 |
-| `provider`、`model` | 空 | 必须显式填写；可不同于主模型；不自动切换服务商 |
-| `targetLanguage` | 简体中文 | 译文语言 |
-| `maxCharsPerCall` | 1600 | 每片段 UTF-16 字符上限，切分不拆开代理对 |
-| `maxCallsPerTurn` | 8 | 每个 Session 每轮最多接纳的片段数；失败不自动重试 |
-| `maxPending` | 12 | 全插件并行会话共享的待处理／正在处理队列上限 |
-| `timeoutMs` | 45000 | 单次辅助模型请求期限；不是进度播报定时器 |
-| `maxOutputTokens` | 4096 | 传给所选适配器的输出 token 上限 |
-| `maxOutputChars` | 16000 | 译文字符上限；截断或超限不标为成功 |
+| `enabled` | false | 启用后会向所选模型发送公开思考片段，产生额外模型请求和费用 |
+| `provider`、`model` | 空 | 明确选择翻译路由，可不同于主模型，不自动切换服务商 |
+| `targetLanguage` | 简体中文 | 目标语言 |
+| `maxCharsPerCall` | 1600 | 单次源片段字符上限；长段落继续切分，不限制总段数 |
+| `timeoutMs` | 45000 | 单次请求超时，不是播报定时器 |
+| `maxOutputTokens` | 4096 | 单次模型输出 token 上限 |
+| `maxOutputChars` | 16000 | 单次译文字符上限；超长或截断响应不标为成功 |
 
-辅助请求串行执行。已结束的段落可在主模型继续工作时开始翻译；很长的段落按长度切分；最后一段等到 reasoning block 完成。超过限额会显示本地的“后续未翻译”提示，不会把它说成模型生成的播报。配置改变后，已接纳的请求使用原配置快照；关闭翻译开关会取消这批工作。原始思考可以包含代码与会话细节，开启即允许将对应公开片段发往选中的服务。主回合 Token 面板未必统计辅助模型费用，以服务商账单为准。
+前四项在设置里实时保存，其余单次请求参数通过 profile patch 修改后重新加载。patch 替换整行 `config`，未写字段恢复默认，示例见 [examples](examples/)。**没有每轮翻译预算、片段条数或待处理数量上限。** 请求串行处理，翻译模型较慢时会积压；可通过关闭翻译取消待处理工作。主模型继续执行工具，不等待翻译。
 
-## 恢复、失败与卸载
+配置改变后，已排队片段使用入队时的模型与语言，新片段使用新配置。关闭开关会取消在途和待处理翻译，保留已有历史。辅助费用不一定计入主回合 Token 面板，以服务商账单为准。
 
-译文请求在源片段出现时记录位置，在发往模型前要求 Session 存储完成 flush；没有持久化监听器或存储失败时不调用模型。成功译文保存为 `plugin:` ignorable 记录，刷新后重新组装同一条聊天记录，不重新翻译。记录不参与 `deriveMessages()`，不会进入主模型上下文。
+## 持久化、取消与失败
 
-超时标记“结果未知”；崩溃后只有请求、没有结果的记录标记“排队／已发起，结果待确认”。这两种情况都不自动重试。重启不会补扫、翻译旧历史，也没有跨会话语义去重缓存；用户主动重新生成是新的主模型尝试，可能产生新的翻译费用。
+请求先记录来源位置并等待 Session flush，再发往模型。结果使用独立、可忽略的 `plugin:` 记录，刷新只重放显示，不进入 `deriveMessages()`，不会污染主模型输入。
 
-取消任务会取消该轮未完成翻译；停用／卸载会中止在途辅助请求并移除 UI。若底层 provider 不响应 AbortSignal，服务端仍可能完成计费，但迟到结果不覆盖已取消状态。DSH 存储 flush 的完成由原持久化实现控制；本插件不会为解除底层存储故障而跳过请求日志。默认监听所有实际运行的 Agent Session；子 Agent 的译文属于其自己的 Session，不会混写到主聊天。
+辅助模型的普通文本可逐步显示为“翻译中”，只有完整成功响应才成为已完成译文。流式快照每 200ms 至多保存一次；失败、超时或取消会替换未完成文本的状态，迟到输出不会覆盖取消结果。只有请求或半成品的崩溃历史表示结果尚待确认，不自动重试。
 
-仅把配置中的 `enabled` 关掉，会停止新翻译并保留已显示的历史译文；在 Plugins 中关闭整个插件则撤下该 UI。重新启用后可从现有记录恢复。卸载不会删除原文或 Session 里的历史记录。未来 DSH 格式迁移对实验记录只有尽力保留保证。
+超时、断网、截断响应、存储失败和翻译模型要求工具调用都不会冒充翻译成功。不会自动重试或切换服务商。取消主任务、关闭翻译、停用或卸载会停止本地待处理工作；若服务商忽略取消，远端仍可能完成计费。原文可随时展开，子 Agent 的译文保留在其自身 Session。
 
 ```sh
-dsh plugin --profile web remove dsh-progress-commentary
 dsh plugin --profile web remove dsh-reasoning-translation
 ```
 
-没有网络服务被额外启动，也没有自动任务、外部监控或生产部署。
+卸载不删除原文或历史插件记录。未来 DSH 格式迁移对实验记录仍只有尽力保留保证。
 
-## 验证情况与本地验收
+## 关于进度插件没有反应
 
-本次静态／mock 检查见 [docs/VALIDATION.md](docs/VALIDATION.md)。已做构建、严格 TypeScript 检查与无密钥测试；**没有启动用户桌面端、没有真实模型 API 测试、没有 GUI 自动化测试**。
+它通过 `systemPrompt.context({ required: true })` 注入规则，不会把 reasoning 自动转成公开回复。当前本机会话中已确认规则存在，但最近几轮工具步骤没有普通文本，模型主要在最终回答才输出普通文本。因此单靠提示词不能保证 Codex 式播报。本轮保持该插件代码不变，优先翻译方案。
 
-请在一个可丢弃测试 Session 中依次验收：
+主模型若能交错生成普通文本和工具调用，DSH 可以显示；设置 → 通用 → 收起后显示的回复选“全部回复”可在任务完成后保留。只输出普通文本、没有工具调用的响应可能直接结束回合，插件不伪造工具或追加强制循环。
 
-1. 只开进度插件，给一个需要读取多文件、修改并测试的任务。观察工具调用前后是否出现自然文本，最终回答是否独立。用一个简短问答确认没有强制播报。
-2. 打开“全部回复”，任务结束后刷新，确认中间回复保留；再切“仅最终回答”确认只是显示策略变化。
-3. 配置并开启翻译，观察带“思考译文 · provider / model”标注的聊天行。原文可展开，最终回答与工具参数不变。
-4. 刷新会话，确认已完成译文不重复计费；未完成请求不自动重试。将原文中的不确定性与译文对照，模型翻译可能不准确。
-5. 测试取消主任务、断开翻译 provider、较小调用上限、关闭开关及卸载，确认没有伪造完成提示，也不阻塞主模型继续工具调用。
-6. 更换 DeepSeek／Gemini 等路由时重验普通文本和工具调用能否交错。没有公开 reasoning 的路由不会凭空产生翻译。
-
-## 从源码复现检查
-
-默认开发目录布局为 `dsh-plugins/` 与 `dsh-research/deepseek-harness/` 同级，也可用 `DSH_SOURCE` 指定上游目录。源码压缩包不重复捆绑上游仓库；若未获取，请先 `git clone https://github.com/deepseek-ai/deepseek-harness.git /绝对路径/deepseek-harness`。先按官方说明安装上游依赖，再执行其必要的生成／类型构建；不需要运行桌面程序：
+## 开发验证
 
 ```sh
-# 在官方 DSH checkout 中
-git checkout 22ddee3792402c3e70ec5f86a63c3e3e895a2f60
+# 官方 DSH checkout，按其说明准备依赖
+# 固定提交：22ddee3792402c3e70ec5f86a63c3e3e895a2f60
 pnpm install --ignore-scripts --frozen-lockfile
 pnpm exec tsx scripts/generate-typert.ts
 pnpm exec tsc -b vendor/loader packages/client/ui-chat/tsconfig.client.json --pretty false
 
-# 回到本项目
+# 本项目；设置 DSH_SOURCE 指向上述 checkout
 npm ci --ignore-scripts
-DSH_SOURCE=/绝对路径/deepseek-harness npm run check
+npm run check
 ```
 
-上游使用特定的标准装饰器与生成的 Remote 类型，本项目检查脚本保留这些真实类型，不用手写 API stub 冒充兼容。Host 和 Client 分开编译，vendored 框架按其官方 tsconfig 生成声明后再引用。若上游步骤提示缺依赖或安装脚本，按官方说明处理，勿跳过诊断假称已通过。
+PowerShell 设置路径示例：`$env:DSH_SOURCE='C:\path\to\deepseek-harness'`。未设置时使用 `../dsh-research/deepseek-harness`。
 
-研究结论见 [技术研究报告](docs/RESEARCH.md)；提示词出处与修改见 [提示词来源](packages/dsh-progress-commentary/prompts/SOURCES.md)。
+验证包含构建、真实上游 Host／Client 分离类型检查、安装包加载、Agent Loop、串行队列、流式重放、设置交互与安全 Markdown。详情与实测限制见 [验证记录](docs/VALIDATION.md)；早期架构研究见 [RESEARCH](docs/RESEARCH.md)。
