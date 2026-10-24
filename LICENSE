@@ -1,0 +1,5 @@
+Independent DSH plugin project
+
+The dsh-progress-commentary package and modified Codex prompt excerpts are distributed under Apache-2.0; see LICENSES/Apache-2.0.txt and that package's NOTICE and prompts/SOURCES.md.
+
+The reasoning-translation package and development/test utilities are distributed under the MIT license; see LICENSES/MIT.txt. The standard-decorator test transformation is adapted from DeepSeek Harness (Copyright (c) 2026 DeepSeek). No proprietary Anthropic prompts are included.

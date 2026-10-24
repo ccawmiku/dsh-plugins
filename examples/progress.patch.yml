@@ -1,0 +1,4 @@
+- id: dsh-progress-commentary
+  config:
+    enabled: true
+    language: 简体中文

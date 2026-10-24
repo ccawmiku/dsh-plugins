@@ -1,0 +1,5 @@
+- insert:
+    - id: dsh-progress-commentary
+      name: dsh-progress-commentary
+      config:
+        enabled: true
