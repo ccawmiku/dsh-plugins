@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { runInNewContext } from 'node:vm'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { Context } from '@deepseek-ai/cordis'
 import { ConversationNodeAssembler } from '@dsh-test/assembler'
 import { ConversationEventRegistry } from '@dsh-test/event-registry'
@@ -9,7 +10,7 @@ import { ConversationViewRegistry } from '@dsh-test/view-registry'
 import type { ConversationViewNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { translationDefinition } from '../packages/dsh-reasoning-translation/src/client.ts'
-import { parseRecord, REQUEST, RESULT, type TranslationRow } from '../packages/dsh-reasoning-translation/src/records.ts'
+import { parseRecord, REQUEST, RESULT, PROGRESS, type TranslationRow } from '../packages/dsh-reasoning-translation/src/records.ts'
 
 const source = { version: 1, id: 'same-key', turn: 1, step: 1, provider: 'aux', model: 'other', language: 'zh',
   source: '<script>untrusted source</script>', system: 'Translate', maxTokens: 100 }
@@ -32,16 +33,20 @@ it('updates one live row, keeps it outside process folding, and recreates the sa
     const assembler = new ConversationNodeAssembler(defs, views)
     assembler.activateTarget('chat')
     const first = event(REQUEST, 0, source)
-    const last = event(RESULT, 1, { version: 1, id: 'same-key', status: 'translated', text: '译文' })
+    const last = event(RESULT, 2, { version: 1, id: 'same-key', status: 'translated', text: '译文' })
     assembler.append({ type: 'event', event: first }); assembler.flush()
     const snapshot = () => assembler.snapshot('chat') as readonly (ConversationViewNode & { groupTree: string; data: TranslationRow })[]
     const key = snapshot()[0]?.key
+    assembler.append({ type: 'event', event: event(PROGRESS, 1, { version: 1, id: 'same-key', status: 'translating', text: '译' }) }); assembler.flush()
+    expect(snapshot()[0]?.data.text).toBe('译')
+    expect(snapshot()[0]?.data.status).toBe('translating')
+    expect(snapshot()[0]?.key).toBe(key)
     assembler.append({ type: 'event', event: last }); assembler.flush()
     expect(snapshot()).toHaveLength(1)
     expect(snapshot()[0]?.key).toBe(key)
     expect(snapshot()[0]?.groupTree).toBe('turn')
     expect(snapshot()[0]?.data.text).toBe('译文')
-    const replay = JSON.parse(JSON.stringify([first, last])) as SessionEvent[]
+    const replay = JSON.parse(JSON.stringify([first, event(PROGRESS, 1, { version: 1, id: 'same-key', status: 'translating', text: '译' }), { ...last, seq: 2 }])) as SessionEvent[]
     assembler.replaceWindow(replay.map(event => ({ type: 'event' as const, event })), false); assembler.flush()
     expect(snapshot()).toHaveLength(1)
     expect(snapshot()[0]?.data.status).toBe('translated')
@@ -63,11 +68,12 @@ it('does not treat an old incomplete request as permission to redispatch', () =>
   expect(translationDefinition.match(event(REQUEST, 0, source))).toEqual({ id: 'same-key', role: 'start' })
 })
 
-it('built browser file registers lazily and needs only the shared React runtime', () => {
-  const load: { id: string; factory(require: NodeRequire): { apply: unknown } }[] = []
+it('built browser file registers lazily and uses the shared React and Markdown runtimes', () => {
+  const load: { id: string; factory(require: (id: string) => unknown): { apply: unknown } }[] = []
   const script = readFileSync('packages/dsh-reasoning-translation/lib/client.js', 'utf8')
   runInNewContext(script, { window: { __ModuleLoader__: { load: (item: typeof load[number]) => load.push(item) } } })
   expect(load).toHaveLength(1)
   expect(load[0]?.id).toBe('dsh-reasoning-translation')
-  expect(typeof load[0]?.factory(createRequire(import.meta.url)).apply).toBe('function')
+  const require = createRequire(import.meta.url)
+  expect(typeof load[0]?.factory(id => id === '@deepseek-ai/dsh-client-ui-primitives' ? primitives : require(id)).apply).toBe('function')
 })

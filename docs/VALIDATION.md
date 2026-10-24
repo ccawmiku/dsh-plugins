@@ -1,40 +1,35 @@
 # 验证记录
 
-日期：2026-10-23 UTC。环境：Linux x86-64，Node `24.19.0`；官方 DSH 固定 SHA `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`。以下是实际完成的检查，不代表真实桌面或真实模型验证。
+2026-10-25（北京时间），Windows x64，Node 24.19.0。翻译插件版本 0.2.0；进度插件源码保持 0.1.0。
 
-## 最终结果
+## 自动化验证
 
-| 检查 | 结果 |
-| --- | --- |
-| `npm run build` | 通过：2 个 Node ESM Host 包、1 个官方 lazy-CJS 格式浏览器入口 |
-| `npm run typecheck` | 通过：Host／Client 独立严格 TS 程序，包含源码与对应测试；使用实际上游 API 类型 |
-| `npm run pack` | 通过：2 个 `.tgz`，包括必要提示词、客户端入口、元数据、源码与许可；附 SHA256SUMS |
-| `npm test` | **6 个测试文件，34 项通过** |
-| `npm run check` | 上述构建 → 类型 → 打包 → 测试的完整链通过 |
-| 解包后的构建产物加载 | 通过：从真正 npm `.tgz` 解包，再加载 `lib/index.js` 挂载到真实 Cordis／DSH 服务；不是仅测试 src |
-| 浏览器包注册 | 通过：VM 检查只注册 factory，materialize 后得到插件出口，React 走既有模块 |
-| 上游工作树 | `git status --short` 无改动；未修改 DSH 核心 |
+官方 DSH 基线 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（0.2.1-rc.3），依照锁文件安装依赖，执行 `generate-typert.ts`，按真实项目引用构建 `vendor/loader` 和 `ui-chat` Client 类型。
 
-开发前先安装了上游所需依赖，执行其 `scripts/generate-typert.ts` 生成 33 个 Remote 等构建产物，并用官方项目引用编译 `vendor/loader` 与 `packages/client/ui-chat/tsconfig.client.json`。直接把全部上游源码放进单个 TS 程序会混合 Host／Client 的 `Context.sessions`，也会漏掉 Remote 生成与 CSS 声明；已按真实双程序结构解决，没有用 `@ts-ignore`、伪接口或屏蔽项目诊断来假称通过。
+设置 `DSH_SOURCE` 后执行 `npm run check`：构建、Host／Client 分离严格类型检查、npm 打包与 **41 项测试**。测试使用真实 Cordis、Session、Agent Loop、ConversationNodeAssembler、React 和 DSH Markdown，模型及存储 flush 是 mock。
 
-公开 npm `@deepseek-ai/schemastery@3.18.5` 包也已下载检查，存在本插件使用的 `.volatile()` 能力。未运行安装生命周期脚本；交付包没有 postinstall／prepare 副作用。
+- 真实 Loop：只翻译公开 reasoning，不附带主会话；主模型文本与工具顺序不变，译文不进入 deriveMessages。
+- 无条数上限：单源超过 128 段、160 个待处理片段仍全部接纳；真实 Host 带旧配置 `maxCallsPerTurn: 1`／`maxPending: 1` 时，24 段仍全部翻译。请求维持串行，持久化失败不发请求。
+- 逐步显示：只显示翻译模型普通文本，不显示翻译模型自身 reasoning；progress 更新同一 key，完整结果取代半成品，重放同样成立。
+- 设置交互：显示已保存模型、加载目录、模型与 provider 原子保存、revision fence、拒绝保存保留编辑、缺项校验和撤销。
+- 真实 Markdown：粗体／行内代码正常，源 `<script>` 不执行，正文无侧边框，原文和来源默认折叠。
+- 取消、卸载、超时、忽略取消的适配器、无 finish／错误／截断／工具响应等既有回归均通过。
+- 缺少路由时启用插件不使主任务启动失败；构建后的 Host／Client 与 npm 安装包可加载。
 
-## 自动化检查覆盖
+## 本机检查
 
-- 真正 Agent Loop＋mock 模型＋无害工具：工具前自然文本／工具调用／工具结果／最终回答的顺序与持久保存；进度插件只使用原本两次主模型请求。
-- required 上下文在 complete persona、关闭可选上下文时仍存在；插件卸载撤销注册；可以禁用，无需任何模型服务；自定义提示词的字面花括号不被错误插值。
-- 公开 reasoning 独立翻译：不同 provider／model，辅助输入没有完整用户上下文、最终答案或工具；原文保留，译文不进 deriveMessages。
-- 源段完成前的实时段落接纳；block-end-only 模型；权威 block-end 去重；长度上限；不拆 UTF-16 代理对；截断后可见限额提示。
-- 串行队列、总队列上限、入队时确定来源顺序；持久化请求／flush 在模型派发之前；存储失败不调用模型。
-- 取消、停用、超时以及忽略 AbortSignal 的 mock adapter；结果未知不自动重试；空／超长／错误／截断／tool-call 响应不标为成功；异常消息中模拟的敏感值不落日志记录。
-- 真实 ConversationNodeAssembler 的 live append、JSON 刷新重放和单一 key 更新；译文节点位于过程折叠之外；坏记录和未知版本忽略。
-- 实际 npm 包内容、兼容元数据、独立提示词路径、构建后 Host 导出以及 lazy-CJS 客户端注册。
+本机 DSH NEXT 2.0.19-next，内置 DSH 0.2.1-rc.2。直接核查捆绑的 ui-settings ConfigForms、whileServed、mutate、modelCatalog 和聊天 UI 接口，具备本次所用能力。
 
-## 严格区分的限制
+只读检查当前 Session：进度提示词确实存在；最近三轮分别有 79、56、25 个 assistant 步骤，但每轮只有一个普通文本步骤，且没有普通文本伴随工具调用。这支持“提示词已注入，但模型未生成公开中间回复”的定位，不能声称零请求提示词插件保证进度播报。
 
-- 没有使用真实模型 API、用户凭证或真实 Agent 任务测试；没有检验服务商账单、真实速率与翻译质量。
-- 没有启动用户 DSH 桌面端，没有 GUI／浏览器自动化；不能声称桌面安装、布局、所有语言字体已经验收。
-- 集成测试中的模型回复与 Session flush 监听器是 mock。它验证顺序与调用条件，不证明生产 JSONL／数据库的断电耐久性。底层存储长期卡住的 flush 由其实现负责，插件不会跳过日志直接调用模型。
-- 没有声称支持 npm 当前旧版 `0.0.1-rc.1` 或所有未来 DSH。测试绑定源码 SHA，尤其是实验性插件记录格式与扩展 UI 类型。
-- 本地源码／打包加载通过不等于经过用户真实 profile 的安装管理器或真实桌面程序验证；README 已给出对应验收步骤。
-- 研发验证未执行生产部署、上游 GitHub 推送、自动合并、定时任务或外部监控；后续交付上传仅涉及独立项目仓库。
+已备份本机旧翻译插件，并更新其安装目录与本地 0.2.0 安装包；没有修改主程序、已有模型路由或用户会话。经用户授权重启 DSH 后，真实设置页已显示“思考翻译”、既有模型、模型目录下拉菜单与路由／模型 ID／目标语言编辑项。
+
+实体界面验收发现 ConfigForm 实例方法被当作无绑定回调传给 React 会失去 this；已改为稳定闭包调用并补充保持实例绑定的回归验证。
+
+本机旧安装把翻译配置写在手动 insert 项中，标准设置写入无法覆盖。已单独备份并将这一项迁移为正常的顶层配置覆盖，未改其他插件配置。真实界面完成一次保持相同模型、语言和开关的保存，返回“已保存，新片段立即使用新配置”，写盘值已核对。
+
+## 实际限制
+
+自动化模型响应与 flush 监听器为 mock，不证明真实翻译质量、速率、计费或断电耐久性。本次尚未使用真实模型 API。未补译旧历史，也未自动重试旧的失败／半成品。长任务无条数上限后可能产生更多费用和排队，单次请求长度、输出与超时仍保留。
+
+本机 rc.2 的接口核查不等于所有 rc.2 发行构建已验收。后续 DSH 更新、Session 格式迁移仍需要重新验证。

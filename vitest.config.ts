@@ -26,6 +26,6 @@ function standardDecoratorPlugin() {
 }
 export default defineConfig({
   plugins: [standardDecoratorPlugin()],
-  resolve: { alias },
-  test: { include: ['tests/**/*.spec.ts'], testTimeout: 15000 },
+  resolve: { alias, dedupe: ['react', 'react-dom'] },
+  test: { include: ['tests/**/*.spec.ts', 'tests/**/*.spec.tsx'], testTimeout: 15000 },
 })

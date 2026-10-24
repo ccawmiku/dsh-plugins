@@ -6,6 +6,7 @@ import type { TranslationRequest } from './records.ts'
 export async function translateWithModel(
   stream: (options: GenerateOptions) => AsyncIterable<StreamChunk>,
   request: TranslationRequest, signal: AbortSignal, maxOutputChars: number,
+  progress: (text: string) => void = () => {},
 ): Promise<string> {
   const texts = new Map<number, string>()
   let size = 0
@@ -29,6 +30,7 @@ export async function translateWithModel(
       size += text.length - (texts.get(chunk.index)?.length ?? 0)
       if (size > maxOutputChars) throw new Error('Translation output limit')
       texts.set(chunk.index, text)
+      progress([...texts.entries()].sort(([a], [b]) => a - b).map(([, text]) => text).join(''))
     }
     if (chunk.type === 'finish') {
       if (chunk.reason.kind !== 'stop') throw new Error('Incomplete translation')

@@ -100,3 +100,40 @@ it('translates only public reasoning through a different model, preserves origin
     expect(events.filter(e => e.type === 'assistant/message')).toHaveLength(1)
   } finally { await ctx.fiber.dispose() }
 })
+
+it('translates every paragraph with legacy count limits present in the profile', async () => {
+  const ctx = await harness()
+  try {
+    ctx.on('session/flush', () => {})
+    const source = Array.from({ length: 24 }, (_, n) => `Public paragraph ${n}.\n\n`).join('')
+    const main = new Scripted([[
+      { type: 'reasoning-delta', index: 0, text: source },
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: source } }, ...text('Final'),
+    ]])
+    const auxiliary = new Scripted(Array.from({ length: 24 }, () => text('译文。')))
+    ctx.llm.registerAdapter(['main'], main); ctx.llm.registerAdapter(['aux'], auxiliary)
+    const events: SessionEvent[] = []
+    ctx.on('session/event', (_session, event) => { events.push(event) })
+    await ctx.plugin(Translation, { enabled: true, provider: 'aux', model: 'translation-model', maxCallsPerTurn: 1, maxPending: 1 })
+    const agent = await ctx.agentLoop.create(SessionId('translation-no-count-limit'), { provider: 'main', model: 'main-model' })
+    agent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Test' }] }))
+    await vi.waitFor(() => expect(events.filter(e => String(e.type) === RESULT)).toHaveLength(24))
+    expect(auxiliary.requests).toHaveLength(24)
+    expect(events.filter(e => String(e.type) === REQUEST)).toHaveLength(24)
+  } finally { await ctx.fiber.dispose() }
+})
+
+it('keeps the main task working when enabled translation is missing its route', async () => {
+  const ctx = await harness()
+  try {
+    await ctx.plugin(Translation, { enabled: true })
+    const main = new Scripted([text('Final')]); ctx.llm.registerAdapter(['main'], main)
+    const events: SessionEvent[] = []
+    ctx.on('session/event', (_session, event) => { events.push(event) })
+    const agent = await ctx.agentLoop.create(SessionId('translation-unconfigured'), { provider: 'main', model: 'main-model' })
+    agent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Test' }] }))
+    await vi.waitFor(() => expect(events.some(e => e.type === 'turn/end')).toBe(true))
+    expect(main.requests).toHaveLength(1)
+    expect(events.filter(e => String(e.type) === REQUEST)).toHaveLength(0)
+  } finally { await ctx.fiber.dispose() }
+})

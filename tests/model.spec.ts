@@ -24,6 +24,16 @@ it('supports providers emitting only complete text blocks', async () => {
   expect(await translateWithModel(stream([{ type: 'block-end', index: 0, block: { type: 'text', text: 'ok' } },
     { type: 'finish', reason: { kind: 'stop' } }]), input, signal, 10)).toBe('ok')
 })
+it('publishes growing ordinary text without exposing translator reasoning', async () => {
+  const progress = vi.fn()
+  const result = await translateWithModel(stream([
+    { type: 'reasoning-delta', index: 0, text: 'not for display' },
+    { type: 'text-delta', index: 1, text: '检查' }, { type: 'text-delta', index: 1, text: '配置。' },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]), input, signal, 100, progress)
+  expect(progress.mock.calls).toEqual([['检查'], ['检查配置。']])
+  expect(result).toBe('检查配置。')
+})
 it.each(['error', 'aborted', 'max-tokens', 'tool-calls'] as const)('rejects non-success finish %s', async kind => {
   const finish: FinishReason = kind === 'error' || kind === 'aborted'
     ? { kind, failure: { code: 'FAILED', message: 'failed' } } : { kind }
