@@ -1,4 +1,4 @@
-> 本文保留 0.1.0 的原始研究结论。0.2.0 已取消条数／队列上限，增加正文 Markdown、译文流式快照及设置页面；当前行为以根 README 与 VALIDATION 为准。
+> 本文主体保留 0.1.0 的原始架构研究。当前版本为翻译 0.2.1／进度 0.1.0；当前行为以根 README 与 VALIDATION 为准。
 
 # DSH 自然语言进度与公开思考翻译：技术研究记录
 
@@ -90,3 +90,13 @@ DSH 源码版本是 `0.2.1-rc.3`。本次 `npm view @deepseek-ai/dsh-llm version
 尚未验证：当前桌面安装对应的真实 SHA；桌面 UI 安装与布局；真实 DeepSeek／Gemini 模型是否遵守提示词并交错文本与工具；不同模型翻译质量与速率；真实计费；生产持久化写盘失败／断电恢复；DSH 后续 Session 格式迁移对实验记录的保留。
 
 不需要核心 Fork 的部分已经实现。若未来需要“任何模型只输出 commentary 文本后也继续循环，并严格区分 final”，最小上游方向是给 provider-neutral assistant 消息增加明确 phase／continuation 元数据，并从适配器贯通 Loop、Session、恢复与 UI；这属于核心协议改动，不在本次插件里伪造。
+
+## 7. 2026-10-24 UTC 最新源码复核与交付修复
+
+重新获取远端 HEAD：DSH `22ddee3792402c3e70ec5f86a63c3e3e895a2f60` 与 Codex `970111f6cb62cc02fe36a82ea7d71b37a2889c97` 均未变化。Claude Code 最新为 [`318b7e6ac4e726e88a4ad326214866a93c373b1b`](https://github.com/anthropics/claude-code/tree/318b7e6ac4e726e88a4ad326214866a93c373b1b)；核对相对原基线的提交和差异，变更在 CHANGELOG、feed 与 sec-default mod 的 hook 规则和说明，未发现新的可直接复用的完整内部进度提示词。原版公开提示词、许可与通道机制的结论不变。
+
+交付仓库采用远端 main `552f4b1741d142c13420862430ddbc8dfcff5d73`，保留已合并的翻译 0.2.0 设置页、Markdown 正文、译文流式快照与无条数上限行为。翻译插件升至 0.2.1；进度插件保持 0.1.0，不额外调用模型，也不把翻译冒充为主模型进度。
+
+源码审查发现跨轮次积压的取消漏洞：原实现的 `turns` 仅保存当前回合控制器，较早已完成主回合的翻译仍可能占用串行队列；销毁 Agent／Session 只中止当前回合，无法覆盖此前接纳的请求。新增真实 AgentHandle 生命周期回归：第一轮积压两段，第二轮完成后销毁 Agent，修复前辅助请求 AbortSignal 仍为 false，稳定复现。现在每个 Session 的所有翻译共享生命周期信号，Agent／Session 销毁时统一中止，已销毁 Session 不再追加迟到结果。
+
+证据链：上游 [`AgentHandle.dispose()` 与 `agent/disposed`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/core/agent/src/index.ts)、[`session/disposed`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/core/session/src/index.ts)；本项目 `packages/dsh-reasoning-translation/src/index.ts` 与 `tests/loop.spec.ts` 的跨回合取消测试。普通回合正常结束仍允许翻译继续排队；关闭翻译、取消当前任务、卸载等原语义不变。服务商忽略取消时仍可能产生已派发调用的费用，不声称能够撤销远端计费。

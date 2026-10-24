@@ -1,5 +1,17 @@
 # 验证记录
 
+## 2026-10-24 UTC 云端交付复核：翻译 0.2.1／进度 0.1.0
+
+环境为 Linux x86-64、Node 24.19.0。从远端 main `552f4b1741d142c13420862430ddbc8dfcff5d73` 开始，保留既有更新；DSH／Codex 的远端 HEAD 与固定研究基线一致，Claude Code 最新提交已补查，见 RESEARCH。此前 Windows 桌面记录作为历史证据保留在下方，不表示本次启动或操作过用户桌面。
+
+依锁文件执行 `npm ci --ignore-scripts`，新版基线 `npm run check` 的构建、严格类型、打包、41 项测试通过。新增跨轮次积压的真实 AgentHandle 销毁回归后，先在未修复实现中复现失败：第一轮翻译在第二轮结束、Agent 销毁后仍未被取消。修复后执行最终 `npm run check`，构建、Host／Client 分离严格类型检查、两个安装包加载及 **7 个测试文件、42 项测试全部通过**。
+
+回归使用真实 Cordis、Agent Loop、Session 和 AgentHandle 生命周期，模型、flush 为 mock；确认积压的先前回合也收到 AbortSignal，已排队的额外请求不派发，迟到模型文本不记录为成功。进度插件仍只使用主模型原有请求。检查没有调用真实模型，没有启动桌面或进行本轮 GUI 验收，不证明真实 provider 翻译质量、计费、遵循提示词的程度或断电恢复。
+
+当前产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.1.0.tgz`，校验见 SHA256SUMS；提示词来源与许可文件均随包保留。
+
+## 历史记录：0.2.0 Windows 验证
+
 2026-10-25（北京时间），Windows x64，Node 24.19.0。翻译插件版本 0.2.0；进度插件源码保持 0.1.0。
 
 ## 自动化验证
