@@ -1,0 +1,117 @@
+# 四季沙龙 · dsh-salon
+
+一个以好玩和陪伴为主的 DSH 插件：你和四位性格不同的成员一起聊天、看本地视频，也可以单独私聊。她们各有自己的记忆、日记与表达方式，空闲时可以主动找你。
+
+## 现在能做什么
+
+- 预置小春（听话女仆）、真白（不耐烦女仆）、丽华（腹黑千金）、夕雾（神秘大姐姐）。名字、人设、头像、兴趣、模型、推理档位和主动程度均可编辑，也能添加成员。
+- 一个公开客厅，以及每位成员独立的一对一私聊；点击头像或左侧成员即可进入私聊。各会话保留独立草稿和待发视频。
+- 输入 `@` 或点击输入框的 `@` 按钮选择成员，支持搜索、上下键、Enter/Tab 插入，以及 `@全体`。你和成员都可以点名，被点名的人优先接话。
+- 群聊会持续自然接话，没有固定轮数上限。一位成员沉默时继续给其他人机会，大家都觉得没有补充时才结束；新发言会重新开放接话机会。讨论中可以直接插话和 @，也能随时停止。
+- 成员只说聊天文字，不输出括号里的动作、心理活动或旁白；流式预览和最终消息都会过滤中英文括号内容。
+- 每人独立长期记忆与日记；公开经历可在私聊提起，私聊材料不会被组装进群聊或其他角色的请求。
+- 默认目标上下文 **500,000 tokens**，模型容量更小时按实际容量处理；核心人设常驻、相关记忆召回、临近预算时增量摘要，原始消息保留。摘要可手动修改和回退。
+- 本地视频导入、资料库、原视频预览、字幕/备注补充、真实视频直传和抽帧通道；每条消息一起看一条视频。
+- 原视频直传失败默认报错；只有显式开启回退才改用抽帧，实际方式和回退原因会显示在消息下方。
+- 主动群聊与主动私聊、随机间隔、可选安静时段、总开关。DSH 必须运行，关闭期间不执行，启动后不补发所有错过的轮次。
+
+## 快速安装与使用
+
+> **运行环境要求**：已安装 **DSH NEXT**（已验证 2.0.19-next+ 服务契约）；若使用视频抽帧与音轨功能需系统已配置 FFmpeg/FFprobe。
+> 本仓库已包含完整的预构建发布文件，**普通用户无需额外安装 Node.js 或构建工具**。
+
+### 方式一：一键脚本安装（推荐，最省心）
+
+1. 克隆本仓库（或在 GitHub 页面点击 **Code -> Download ZIP** 下载并解压）：
+   ```powershell
+   git clone https://github.com/ccawmiku/dsh-salon.git
+   cd dsh-salon
+   ```
+2. 在项目根目录执行一键安装脚本：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+   > 脚本将自动调用本机 DSH NEXT 官方插件管理器完成模块注册与依赖安全保留，绝不篡改宿主现有配置。
+3. 重新打开 DSH NEXT，在左侧侧边栏即可看到「**四季沙龙**」插件入口！
+
+---
+
+### 方式二：通过 DSH 命令行直接安装 GitHub 仓库
+
+如果你已配置好 DSH 命令行环境：
+```powershell
+dsh plugin --profile desktop add https://github.com/ccawmiku/dsh-salon
+```
+
+> **提示**：若未配置全局 `dsh` 命令，可直接在 PowerShell 中调用 DSH NEXT 内置运行器执行：
+> ```powershell
+> $env:ELECTRON_RUN_AS_NODE = "1"
+> & "$env:LOCALAPPDATA\Programs\DSH NEXT\DSH NEXT.exe" "$env:LOCALAPPDATA\Programs\DSH NEXT\resources\app.asar\lib\plugin-cli.js" desktop add "https://github.com/ccawmiku/dsh-salon"
+> ```
+
+---
+
+### 方式三：开发者从源码构建
+
+如果你希望二次开发或修改客户端界面：
+```powershell
+git clone https://github.com/ccawmiku/dsh-salon.git
+cd dsh-salon
+npm install
+npm run build
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+---
+
+## 快速上手配置
+
+1. 启动 DSH NEXT 并进入侧栏「**四季沙龙**」。
+2. 首次进入请点击右上角「**沙龙设置**」，选择默认使用的 DSH 提供方与模型（如 DeepSeek、Gemini、Claude 等）。
+3. 无需重复输入 API Key，插件会安全复用 DSH 已保存的官方凭据。
+4. 每位角色支持单独配置覆盖其专属模型、推理档位、头像与人设；未选择模型时不会发起模型请求。
+
+## 视频的两种方式
+
+**原视频直传**：插件绕过 DSH 将视频变成普通文件/图片的投递流程，读取该角色 DSH 提供方配置，经 Gemini 原生 `generateContent` 提交视频字节。小于等于 12 MiB 的文件使用 `inlineData`；更大文件走同源 Files API 上传、等待 ACTIVE 后再调用。不是所有中转站都支持原生接口或 Files API；不支持会明确报错。可在设置里覆盖原生接口地址和已保存的凭据变量名，密钥不会下发到界面。
+
+**抽帧 + 声音材料**：本地 FFmpeg 按时间抽帧，长视频自动增大间隔以覆盖整段；通过 DSH 正规图片附件通道交给角色。音轨由选定的 Gemini 原生通道转写，或使用你手动粘贴的 SRT/VTT/文本。没有声音、未配置声音通道、转写关闭等状态会显示，模型也会收到对应说明。纯文本模型会被明确拒绝观看图片。
+
+自动方式：模型 ID 含 `gemini` 时优先尝试直传，其余走抽帧。角色可以单独选择方式。视频第一轮各自形成感受，之后再接彼此的话。
+
+这里的“本地视频”指来源和素材保存在本机；调用云端模型时视频、画面或转写仍会提交给你选择的接口。
+
+## 记忆与上下文
+
+设计参考 [SillyTavern 群聊](https://docs.sillytavern.app/usage/core-concepts/groupchats/)、[World Info](https://github.com/SillyTavern/SillyTavern-Docs/blob/main/Usage/worldinfo.md) 和 [Summarize](https://docs.sillytavern.app/extensions/summarize/)，实现为独立 DSH 插件，不依赖 SillyTavern。
+
+1. **稳定人设**：始终独立注入当前发言角色的人设，不把四张完整角色卡混成一个身份。
+2. **长期记忆**：从真实消息整理，保留范围和来源 ID；支持手动编辑、删除、关键词和常驻标记。以中文分词、双字片段、关键词权重和逆文档频率召回相关内容，尚未使用 embedding 向量库。
+3. **最近原文**：不采用固定 160 条截断；实际能容纳的原文尽量保留。
+4. **旧剧情摘要**：输入达到可用预算的 85% 时，分批合并旧摘要和更早原文；保留最近一段对话，原始记录不删除。摘要失败不前移边界；版本可编辑、回退。
+5. **范围隔离**：私聊的摘要和记忆只进该角色的私聊；群聊背景可供同一角色在私聊中参考。设定为私密的内容不会因置顶而越界。
+
+Token 数使用保守估算，不是提供方精确分词计数。有效预算会扣除输出和视频预留；模型没有披露容量时界面明确标记未知。500k 是上限目标，不代表任何模型都支持 500k。
+
+## 数据
+
+正式数据：`%USERPROFILE%/.dsh/storages/dsh-salon/`，或 `$DSH_HOME/storages/dsh-salon/`。聊天、角色、记忆、日记、摘要在 `state.json`，上一版在 `state.json.bak`。视频原件、抽帧、提取音轨位于 `media/<UUID>/`。这些文件不放在项目仓库内。
+
+界面「记忆与日记 → 导出全部记录」导出文字状态备份；导出不包含视频字节，完整备份请复制整个数据目录。状态损坏会停止加载并保留原文件，不会覆盖为新档。
+
+## 开发和验收
+
+```powershell
+npm run check
+npm test
+npm run build
+npm run test:ui
+# 可选：手动打开演示界面
+npm run dev -- --demo
+```
+
+演示地址：`http://127.0.0.1:3188`。演示固定显示标记，只使用测试样例，不连接真实模型；数据在 `.dev-data/demo`，不与正式数据混用。
+
+`tests/host-contract.cjs` 检查已安装 DSH 的真实 Fetch 注册、GET/POST 与卸载；`tests/live-provider.cjs` 使用本机 DSH 配置调用真实模型和合成视频，会消费少量模型额度，结果只记录通道和输出长度，不记录凭据。
+
+详细结构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
