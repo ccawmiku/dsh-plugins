@@ -1,6 +1,6 @@
 {
   "name": "dsh-reasoning-translation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "用指定 DSH 模型翻译公开思考，并在聊天流显示译文",
   "type": "module",
   "main": "./lib/index.js",
