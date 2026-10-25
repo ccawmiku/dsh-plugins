@@ -14,3 +14,9 @@
 - 语言通过配置补入；不复制 Anthropic 非公开提示词。
 
 `codex-original-excerpts.md` 保存此次核对的原文节选，仅供出处核对，**不注入模型**。实际注入内容是 `commentary.md`、语言偏好以及达到沉默间隔时的简短提醒。上下文由 DSH 正常持久化和复用，不修改已经冻结的模型请求，不将词数当实测 token 数。
+
+## 0.2.1 表达调整（2026-10-25）
+
+再次核查 Codex HEAD 仍为上述 SHA。除 Intermediate commentary 外，还核对同一模型模板的 Writing style 和 Technical communication：借鉴连贯段落、具体发现与其影响、必要细节和行动目的，避免把工具动作逐条报给用户。保留基本消息协议，重写为原创适配表述和中文示例，不照抄英文例句或固定口吻。
+
+Claude Code 官方仓库核查到 `318b7e6ac4e726e88a4ad326214866a93c373b1b`。其 explanatory-output-style 的公开 SessionStart 示例侧重具体实现选择与代码库见解；官方 output-styles 文档的 Concise 风格明确减少逐步旁白。仓库中没有核实到完整默认运行时提示词；未把社区 issue 中的提示词摘录当作官方事实，也未复制 Anthropic 提示词或其 Insight 模板。完整链接与 DSH 源码核查见仓库 docs/PROMPT-STYLE-RESEARCH.md。

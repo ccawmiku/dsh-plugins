@@ -5,11 +5,12 @@
 | 插件 | 当前定位 |
 | --- | --- |
 | `dsh-reasoning-translation` **0.2.1** | 优先维护。将 DSH 已公开的 reasoning 翻译成聊天中的自然段落，作为进度体验的过渡方案 |
-| `dsh-progress-commentary` **0.2.0** | 引导主模型持续说明进度，默认沉默约 3 分钟后在下一次响应前提醒，不增加模型请求 |
+| `dsh-progress-commentary` **0.2.1** | 引导主模型持续说明进度，优先说明发现与影响，默认沉默约 3 分钟后在下一次响应前提醒，不增加模型请求 |
 
 ## 0.2.1 的变化
 
-修复跨轮次翻译积压的取消问题：Agent 或 Session 销毁后，所有轮次的在途与排队翻译都收到取消信号，停止后续派发；不会在已销毁 Session 写入迟到结果。不改变 0.2.0 的模型设置、正文排版或无条数上限行为。
+- **翻译插件 (0.2.1)**：修复跨轮次翻译积压的取消问题：Agent 或 Session 销毁后，所有轮次的在途与排队翻译都收到取消信号，停止后续派发；不会在已销毁 Session 写入迟到结果。不改变 0.2.0 的模型设置、正文排版或无条数上限行为。
+- **进度插件 (0.2.1)**：优化进度语气，针对逐条“我查看／我搜索／我调用”的流水账调整了默认引导词和到期提醒，相关检查合并说明，只在发现、方向变化、阻碍或沉默提醒时给出简短更新，避免复述工具参数。保留 0.2.0 的默认 180 秒沉默提醒与 Session 隔离机制。
 
 ### 保留的 0.2.0 功能
 
@@ -25,7 +26,7 @@
 
 翻译插件清单接受 **DSH `0.2.1-rc.2` 或 `0.2.1-rc.3`**，Node ≥24.9.0。源码类型检查与集成测试固定在官方提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（`0.2.1-rc.3`）；此前 Windows 交付记录对 DSH NEXT `2.0.19-next` 内置的 `0.2.1-rc.2` 核查过现有接口，详见 [验证记录](docs/VALIDATION.md)。本轮云端未启动桌面；同版本号的其他构建和后续版本仍需重验。
 
-进度插件 0.2.0 的清单同样接受 rc.2／rc.3。不建议为安装而绕过官方版本检查。
+进度插件 0.2.1 的清单同样接受 rc.2／rc.3。不建议为安装而绕过官方版本检查。
 
 DSH 官方实验“思考翻译”主要显示在展开的思考栏中。本项目提供任意已配置模型与聊天流显示。两者同时开启可能分别发送请求，通常选一种即可。
 
@@ -34,13 +35,13 @@ DSH 官方实验“思考翻译”主要显示在展开的思考栏中。本项�
 当前安装包位于 `dist/`：
 
 - `dsh-reasoning-translation-0.2.1.tgz`（推荐优先使用）
-- `dsh-progress-commentary-0.2.0.tgz`
+- `dsh-progress-commentary-0.2.1.tgz`
 
 Web／CLI profile：
 
 ```sh
 dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.2.1.tgz
-dsh plugin --profile web add /绝对路径/dsh-progress-commentary-0.2.0.tgz
+dsh plugin --profile web add /绝对路径/dsh-progress-commentary-0.2.1.tgz
 ```
 
 桌面版请使用 DSH 自带的插件管理器安装本地 `.tgz`，避免用另一套 npm DSH 混写桌面 profile。升级后重启 DSH，让 Host 和浏览器入口一起加载新版本。已有模型配置和历史译文保留；历史译文会直接采用新排版，**不会补译旧历史或重新发送已完成请求**。
@@ -92,7 +93,9 @@ dsh plugin --profile web remove dsh-reasoning-translation
 
 卸载不删除原文或历史插件记录。未来 DSH 格式迁移对实验记录仍只有尽力保留保证。
 
-## 进度插件配置与限制
+## 进度说明与表达风格
+
+0.2.1 针对逐条“我查看／我搜索／我调用”的流水账调整了默认引导词和到期提醒。相关检查合并说明，只在发现、方向变化、阻碍或沉默提醒时给简短更新；工具行已经展示的动作通常不再重复。默认 180 秒间隔保持不变。公开来源与 DSH 英文思考的显示实现见 [表达研究](docs/PROMPT-STYLE-RESEARCH.md)。已有自定义 `instructions` 不会被升级覆盖；使用默认规则的安装会加载新提示词。
 
 进度插件安装后默认开启。在 Plugins 中设置 `enabled`、`language` 和 `instructions`；清空规则或关闭开关会停止注入。规则单独保存在 [commentary.md](packages/dsh-progress-commentary/prompts/commentary.md)，原文出处及许可见 [SOURCES.md](packages/dsh-progress-commentary/prompts/SOURCES.md)。卸载命令是 `dsh plugin --profile web remove dsh-progress-commentary`。
 

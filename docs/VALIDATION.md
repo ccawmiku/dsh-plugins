@@ -1,8 +1,8 @@
 # 验证记录
 
-## 2026-10-25 合并复核：翻译 0.2.1／进度 0.2.0
+## 2026-10-25 合并复核：翻译 0.2.1／进度 0.2.1
 
-环境为 Node 24.19.0。完成 PR 2（翻译 0.2.1 修复跨轮次取消）与 PR 3（进度 0.2.0 默认三分钟沉默提醒）合并，执行 `npm test`，7 个测试文件、44 项测试全部通过。产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.2.0.tgz`，校验见 SHA256SUMS。
+环境为 Node 24.19.0。完成 PR 2（翻译 0.2.1 修复跨轮次取消）与 PR 4（进度 0.2.1 优化自然表达）合并，执行 `npm test`，7 个测试文件、44 项测试全部通过。产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.2.1.tgz`，校验见 SHA256SUMS。
 
 ## 2026-10-24 UTC 云端交付复核：翻译 0.2.1
 
@@ -12,7 +12,7 @@
 
 回归使用真实 Cordis、Agent Loop、Session 和 AgentHandle 生命周期，模型、flush 为 mock；确认积压的先前回合也收到 AbortSignal，已排队的额外请求不派发，迟到模型文本不记录为成功。进度插件仍只使用主模型原有请求。检查没有调用真实模型，没有启动桌面或进行本轮 GUI 验收，不证明真实 provider 翻译质量、计费、遵循提示词的程度或断电恢复。
 
-当前产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.2.0.tgz`，校验见 SHA256SUMS；提示词来源与许可文件均随包保留。
+当前产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.2.1.tgz`，校验见 SHA256SUMS；提示词来源与许可文件均随包保留。
 
 ## 历史记录：0.2.0 Windows 验证
 
@@ -53,3 +53,9 @@
 ## 进度插件持续更新回归
 
 0.2.0 默认沉默提醒为 180 秒，按用户“太快了”的反馈放弃每 4 步／60 秒方案。真实 Agent Loop 配合 mock 时钟与工具，验证 180 秒触发、600 秒配置不会提前触发、忽略提醒不会重置、reasoning 不算公开文字、实际公开文字重置、回合结束清除以及 Session 隔离。固定 5 次原有主模型请求，不增加请求。只验证提醒注入与调用数量，不能把 mock 模型输出当作真实模型遵从率证明。
+
+## 0.2.1 表达研究与回归
+
+核对 Codex 两套公开进度指引及模型模板的写作规则、Claude Code 官方输出风格扩展示例和文档，以及 DSH ReasoningRow、ReasoningContent 和适配器归一化链路，证据见 PROMPT-STYLE-RESEARCH.md。只调整默认文字引导和到期提醒，计时、Session 隔离及翻译逻辑不变。运行原有 44 项行为／集成测试及 Host／Client 类型检查，不为提示词措辞增加字符串镜像测试。未用真实模型比较自然度，测试通过不能证明所有模型都会采用目标语气。
+
+本机已备份 0.2.0 并更新到 0.2.1 的插件文件与安装包，原有配置不变；未重启 DSH。历史公开回复不会被改写，是否热加载应以运行中的 DSH 为准。
