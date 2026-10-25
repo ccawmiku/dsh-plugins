@@ -20,3 +20,7 @@
 再次核查 Codex HEAD 仍为上述 SHA。除 Intermediate commentary 外，还核对同一模型模板的 Writing style 和 Technical communication：借鉴连贯段落、具体发现与其影响、必要细节和行动目的，避免把工具动作逐条报给用户。保留基本消息协议，重写为原创适配表述和中文示例，不照抄英文例句或固定口吻。
 
 Claude Code 官方仓库核查到 `318b7e6ac4e726e88a4ad326214866a93c373b1b`。其 explanatory-output-style 的公开 SessionStart 示例侧重具体实现选择与代码库见解；官方 output-styles 文档的 Concise 风格明确减少逐步旁白。仓库中没有核实到完整默认运行时提示词；未把社区 issue 中的提示词摘录当作官方事实，也未复制 Anthropic 提示词或其 Insight 模板。完整链接与 DSH 源码核查见仓库 docs/PROMPT-STYLE-RESEARCH.md。
+
+## 0.2.2 自然触发默认值（2026-10-25）
+
+按本次任务“不强制每隔固定秒数输出”的要求，保留 0.2.1 的表达和公开来源，明确不得使用时间／工具次数配额强迫播报。已有沉默提醒成为 `silenceReminders: true` 才启用的可选功能，默认关闭；它仍不新增模型调用或定时器。这是 DSH 适配规则，不声称来自上游默认配置。

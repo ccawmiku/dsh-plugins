@@ -65,12 +65,17 @@ it('preserves text beside real tool calls, uses no extra progress model request 
   } finally { await ctx.fiber.dispose() }
 })
 
-it.each([180, 600])('honors a %s-second cadence, stays due when ignored, and resets only on public text', async intervalSeconds => {
+it.each([
+  { intervalSeconds: 180, silenceReminders: true },
+  { intervalSeconds: 600, silenceReminders: true },
+  { intervalSeconds: 180 },
+])('uses silence reminders only when opted in ($intervalSeconds seconds / $silenceReminders)', async options => {
+  const { intervalSeconds } = options
   let now = 1000
   const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
   const ctx = await harness()
   try {
-    await ctx.plugin(Progress, { intervalSeconds })
+    await ctx.plugin(Progress, options)
     let agent: Agent
     const reminders: boolean[] = []
     class Observed extends Scripted {
@@ -106,7 +111,7 @@ it.each([180, 600])('honors a %s-second cadence, stays due when ignored, and res
     agent = await ctx.agentLoop.create(SessionId('progress-cadence'), { provider: 'main', model: 'main-model' })
     agent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Long task' }] }))
     await vi.waitFor(() => expect(finished).toBe(true))
-    expect(reminders).toEqual(intervalSeconds === 180 ? [false, false, true, true, false] : [false, false, false, false, false])
+    expect(reminders).toEqual(options.silenceReminders && intervalSeconds === 180 ? [false, false, true, true, false] : [false, false, false, false, false])
     expect(model.requests).toHaveLength(5)
     now += 600000
     expect(renderContextSnapshot(await ctx.systemPrompt.assemble(assembleContextFor(agent)))).not.toContain('Progress update due:')

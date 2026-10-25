@@ -2,4 +2,5 @@
   config:
     enabled: true
     language: 简体中文
+    silenceReminders: false
     intervalSeconds: 180

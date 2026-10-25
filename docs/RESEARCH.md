@@ -1,4 +1,4 @@
-> 本文主体保留 0.1.0 的原始架构研究。当前版本为翻译 0.2.1／进度 0.1.0；当前行为以根 README 与 VALIDATION 为准。
+> 本文主体保留 0.1.0 的原始架构研究。当前版本为翻译 0.2.1／进度 0.2.2；当前行为以根 README 与 VALIDATION 为准。
 
 # DSH 自然语言进度与公开思考翻译：技术研究记录
 
@@ -100,3 +100,9 @@ DSH 源码版本是 `0.2.1-rc.3`。本次 `npm view @deepseek-ai/dsh-llm version
 源码审查发现跨轮次积压的取消漏洞：原实现的 `turns` 仅保存当前回合控制器，较早已完成主回合的翻译仍可能占用串行队列；销毁 Agent／Session 只中止当前回合，无法覆盖此前接纳的请求。新增真实 AgentHandle 生命周期回归：第一轮积压两段，第二轮完成后销毁 Agent，修复前辅助请求 AbortSignal 仍为 false，稳定复现。现在每个 Session 的所有翻译共享生命周期信号，Agent／Session 销毁时统一中止，已销毁 Session 不再追加迟到结果。
 
 证据链：上游 [`AgentHandle.dispose()` 与 `agent/disposed`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/core/agent/src/index.ts)、[`session/disposed`](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/core/session/src/index.ts)；本项目 `packages/dsh-reasoning-translation/src/index.ts` 与 `tests/loop.spec.ts` 的跨回合取消测试。普通回合正常结束仍允许翻译继续排队；关闭翻译、取消当前任务、卸载等原语义不变。服务商忽略取消时仍可能产生已派发调用的费用，不声称能够撤销远端计费。
+
+## 8. 2026-10-25 UTC 最新基线与自然触发
+
+交付基线推进到 main `fde95daf0749666680982d59ef9f947b72c6754c`，不覆盖已合并的自然表达、翻译设置和取消修复。远端 HEAD 再次确认：DSH 为 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`，Codex 为 `970111f6cb62cc02fe36a82ea7d71b37a2889c97`，Claude Code 为 `318b7e6ac4e726e88a4ad326214866a93c373b1b`，已有固定链接和许可结论仍适用。
+
+本次要求不按固定秒数强制播报，因此进度 0.2.2 通过独立的 volatile 布尔配置 `silenceReminders` 将已有时间提醒改为默认关闭。默认只注入基于发现、阶段变化、阻碍的自然进度规则；可选提醒仍可由使用者明确开启，不增加定时器、工具或模型调用。提示词与传输展示继续分离，原有普通文本＋真实工具调用链路不变。当前限制仍是模型可能不遵循指令，或 provider 无法交错普通文本与工具调用；本插件不会以辅助模型、伪工具或字符串猜测掩盖这些限制。

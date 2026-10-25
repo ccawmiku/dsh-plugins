@@ -5,9 +5,15 @@
 | 插件 | 当前定位 |
 | --- | --- |
 | `dsh-reasoning-translation` **0.2.1** | 优先维护。将 DSH 已公开的 reasoning 翻译成聊天中的自然段落，作为进度体验的过渡方案 |
-| `dsh-progress-commentary` **0.2.1** | 引导主模型持续说明进度，优先说明发现与影响，默认沉默约 3 分钟后在下一次响应前提醒，不增加模型请求 |
+| `dsh-progress-commentary` **0.2.2** | 主模型按发现、阶段变化和阻碍自然播报；沉默提醒默认关闭，不增加模型请求 |
 
-## 0.2.1 的变化
+## 进度插件 0.2.2：默认自然触发
+
+默认不因时间流逝强制催促播报。新增 `silenceReminders`，默认 `false`；已有的 `intervalSeconds` 继续保留，但只有明确设置 `silenceReminders: true` 才生效。这也适用于从 0.2.1 升级、只有旧间隔配置的安装。可选提醒不启动定时器，不创建额外模型请求，只影响下一次已有模型响应的上下文。
+
+两个插件分别安装和工作：翻译是辅助模型的译文，进度是主模型自己的普通文本，不混淆来源。
+
+### 已保留的 0.2.1 更新
 
 - **翻译插件 (0.2.1)**：修复跨轮次翻译积压的取消问题：Agent 或 Session 销毁后，所有轮次的在途与排队翻译都收到取消信号，停止后续派发；不会在已销毁 Session 写入迟到结果。不改变 0.2.0 的模型设置、正文排版或无条数上限行为。
 - **进度插件 (0.2.1)**：优化进度语气，针对逐条“我查看／我搜索／我调用”的流水账调整了默认引导词和到期提醒，相关检查合并说明，只在发现、方向变化、阻碍或沉默提醒时给出简短更新，避免复述工具参数。保留 0.2.0 的默认 180 秒沉默提醒与 Session 隔离机制。
@@ -26,7 +32,7 @@
 
 翻译插件清单接受 **DSH `0.2.1-rc.2` 或 `0.2.1-rc.3`**，Node ≥24.9.0。源码类型检查与集成测试固定在官方提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（`0.2.1-rc.3`）；此前 Windows 交付记录对 DSH NEXT `2.0.19-next` 内置的 `0.2.1-rc.2` 核查过现有接口，详见 [验证记录](docs/VALIDATION.md)。本轮云端未启动桌面；同版本号的其他构建和后续版本仍需重验。
 
-进度插件 0.2.1 的清单同样接受 rc.2／rc.3。不建议为安装而绕过官方版本检查。
+进度插件 0.2.2 的清单同样接受 rc.2／rc.3。不建议为安装而绕过官方版本检查。
 
 DSH 官方实验“思考翻译”主要显示在展开的思考栏中。本项目提供任意已配置模型与聊天流显示。两者同时开启可能分别发送请求，通常选一种即可。
 
@@ -35,18 +41,18 @@ DSH 官方实验“思考翻译”主要显示在展开的思考栏中。本项�
 当前安装包位于 `dist/`：
 
 - `dsh-reasoning-translation-0.2.1.tgz`（推荐优先使用）
-- `dsh-progress-commentary-0.2.1.tgz`
+- `dsh-progress-commentary-0.2.2.tgz`
 
 Web／CLI profile：
 
 ```sh
 dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.2.1.tgz
-dsh plugin --profile web add /绝对路径/dsh-progress-commentary-0.2.1.tgz
+dsh plugin --profile web add /绝对路径/dsh-progress-commentary-0.2.2.tgz
 ```
 
 桌面版请使用 DSH 自带的插件管理器安装本地 `.tgz`，避免用另一套 npm DSH 混写桌面 profile。升级后重启 DSH，让 Host 和浏览器入口一起加载新版本。已有模型配置和历史译文保留；历史译文会直接采用新排版，**不会补译旧历史或重新发送已完成请求**。
 
-首次安装默认关闭。进入 **设置 → 思考翻译**，选定模型后勾选启用并保存。插件详情仍可编辑相同的实时字段。若早期手工安装在 profile patch 的 `insert` 中又写入了同名翻译插件，请在已装配本包 bundle 的前提下，把这一条改为示例中的顶层 `id` 配置覆盖；否则 DSH 的标准设置编辑器可能拒绝保存。
+翻译插件首次安装默认关闭。进入 **设置 → 思考翻译**，选定模型后勾选启用并保存。插件详情仍可编辑相同的实时字段。若早期手工安装在 profile patch 的 `insert` 中又写入了同名翻译插件，请在已装配本包 bundle 的前提下，把这一条改为示例中的顶层 `id` 配置覆盖；否则 DSH 的标准设置编辑器可能拒绝保存。
 
 ## 翻译配置
 
@@ -95,13 +101,13 @@ dsh plugin --profile web remove dsh-reasoning-translation
 
 ## 进度说明与表达风格
 
-0.2.1 针对逐条“我查看／我搜索／我调用”的流水账调整了默认引导词和到期提醒。相关检查合并说明，只在发现、方向变化、阻碍或沉默提醒时给简短更新；工具行已经展示的动作通常不再重复。默认 180 秒间隔保持不变。公开来源与 DSH 英文思考的显示实现见 [表达研究](docs/PROMPT-STYLE-RESEARCH.md)。已有自定义 `instructions` 不会被升级覆盖；使用默认规则的安装会加载新提示词。
+0.2.2 保留此前对流水账的表达优化：相关检查合并说明，在发现、方向变化或阻碍时给简短更新；工具行已经展示的动作通常不再重复。沉默提醒默认关闭；需要该能力时，可自行设置 `silenceReminders: true`，并通过 `intervalSeconds` 调整间隔。公开来源与 DSH 英文思考的显示实现见 [表达研究](docs/PROMPT-STYLE-RESEARCH.md)。已有自定义 `instructions` 不会被升级覆盖；使用默认规则的安装会加载新提示词。
 
-进度插件安装后默认开启。在 Plugins 中设置 `enabled`、`language` 和 `instructions`；清空规则或关闭开关会停止注入。规则单独保存在 [commentary.md](packages/dsh-progress-commentary/prompts/commentary.md)，原文出处及许可见 [SOURCES.md](packages/dsh-progress-commentary/prompts/SOURCES.md)。卸载命令是 `dsh plugin --profile web remove dsh-progress-commentary`。
+进度插件安装后默认开启。在 Plugins 中设置 `enabled`、`language`、`instructions`、`silenceReminders` 和 `intervalSeconds`；清空规则或关闭开关会停止注入。规则单独保存在 [commentary.md](packages/dsh-progress-commentary/prompts/commentary.md)，原文出处及许可见 [SOURCES.md](packages/dsh-progress-commentary/prompts/SOURCES.md)。卸载命令是 `dsh plugin --profile web remove dsh-progress-commentary`。
 
 ### 关于进度插件没有反应
 
-它通过 `systemPrompt.context({ required: true })` 注入规则，不会把 reasoning 自动转成公开回复。当前本机会话中已确认规则存在，但最近几轮工具步骤没有普通文本，模型主要在最终回答才输出普通文本。因此仅靠静态提示词不能保证 Codex 式播报。0.2.0 已增加按 Session 统计公开说明的沉默时间：默认 180 秒后在下一次已有响应前明确提醒持续更新，真正输出公开文字才重置；可在插件配置中修改 `intervalSeconds`。不采用“每 4 步催一次”的频率，也不在工具执行期间新增模型请求。仍无法保证所有模型遵守。
+它通过 `systemPrompt.context({ required: true })` 注入规则，不会把 reasoning 自动转成公开回复。当前本机会话中已确认规则存在，但最近几轮工具步骤没有普通文本，模型主要在最终回答才输出普通文本。因此仅靠静态提示词不能保证 Codex 式播报。此前的按 Session 统计沉默时间能力现为可选：只有 `silenceReminders: true` 时，才按 `intervalSeconds` 在下一次已有响应前提醒，真正输出公开文字才重置。不采用“每 4 步催一次”的频率，也不在工具执行期间新增模型请求。仍无法保证所有模型遵守。
 
 主模型若能交错生成普通文本和工具调用，DSH 可以显示；设置 → 通用 → 收起后显示的回复选“全部回复”可在任务完成后保留。只输出普通文本、没有工具调用的响应可能直接结束回合，插件不伪造工具或追加强制循环。
 

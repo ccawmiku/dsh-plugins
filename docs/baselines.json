@@ -10,8 +10,8 @@
   },
   "npm_dsh_llm_latest_observed": "0.0.1-rc.1",
   "latest_review": {
-    "date_utc": "2026-10-24",
-    "delivery_base_sha": "552f4b1741d142c13420862430ddbc8dfcff5d73",
+    "date_utc": "2026-10-25",
+    "delivery_base_sha": "fde95daf0749666680982d59ef9f947b72c6754c",
     "dsh_head_unchanged": true,
     "codex_head_unchanged": true,
     "claude_code_head_reviewed": "318b7e6ac4e726e88a4ad326214866a93c373b1b"

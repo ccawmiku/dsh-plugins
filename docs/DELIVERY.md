@@ -1,9 +1,9 @@
 # 交付清单
 
 - `packages/dsh-reasoning-translation/`：0.2.1 Host／Client 源码、设置页、翻译队列、流式记录及聊天 Markdown 渲染。
-- `packages/dsh-progress-commentary/`：0.2.1 进度插件，保留 3 分钟提醒并优化自然表达。
-- `dist/dsh-reasoning-translation-0.2.1.tgz`、`dist/dsh-progress-commentary-0.2.1.tgz` 与 SHA256SUMS。
-- 根 README、examples、docs/VALIDATION.md：安装、配置、升级、44 项测试和实测边界。
+- `packages/dsh-progress-commentary/`：0.2.2 进度插件，按阶段自然触发，沉默提醒默认关闭且可选开启。
+- `dist/dsh-reasoning-translation-0.2.1.tgz`、`dist/dsh-progress-commentary-0.2.2.tgz` 与 SHA256SUMS。
+- 根 README、examples、docs/VALIDATION.md：安装、配置、升级、45 项测试和实测边界。
 - docs/RESEARCH.md 与 baselines.json：早期架构研究及固定上游版本。
 - tests 与 scripts：包括 Windows 路径／npm 打包支持的可复现检查。
 

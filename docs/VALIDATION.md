@@ -1,5 +1,15 @@
 # 验证记录
 
+## 2026-10-25 UTC 云端验收：翻译 0.2.1／进度 0.2.2
+
+以最新 main `fde95daf0749666680982d59ef9f947b72c6754c` 为基线，保留 PR 1–4 已合并功能。重新查询 DSH、Codex 和 Claude Code 远端 HEAD，仍分别为本报告已固定的源码提交。
+
+新增默认不按固定时间催促的集成回归：修复前，未配置提醒开关也会在时间阈值后注入到期指令，实际复现失败；修复后必须显式 `silenceReminders: true` 才启用原有间隔逻辑。验证默认、180 秒及 600 秒 opt-in、Session 隔离、公开文字重置和回合结束清理，模型调用数量始终是脚本中的 5 次，无额外请求。
+
+本轮执行 `npm run check`：构建、Host／Client 分离严格类型、两个真实 npm 安装包加载与 **7 个测试文件、45 项测试通过**。使用真实 Cordis、DSH Loop／Session／会话组装器，模型与存储 flush 为 mock。未使用真实模型凭据，未运行真实 provider、桌面或本轮 GUI 验收；既有 Windows 验证只作为下方历史记录保留。
+
+产物为 `dist/dsh-progress-commentary-0.2.2.tgz` 与 `dist/dsh-reasoning-translation-0.2.1.tgz`；源码与协议不需要核心 Fork。
+
 ## 2026-10-25 合并复核：翻译 0.2.1／进度 0.2.1
 
 环境为 Node 24.19.0。完成 PR 2（翻译 0.2.1 修复跨轮次取消）与 PR 4（进度 0.2.1 优化自然表达）合并，执行 `npm test`，7 个测试文件、44 项测试全部通过。产物为 `dist/dsh-reasoning-translation-0.2.1.tgz` 与 `dist/dsh-progress-commentary-0.2.1.tgz`，校验见 SHA256SUMS。
