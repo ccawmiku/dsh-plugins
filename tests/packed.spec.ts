@@ -12,12 +12,12 @@ import SessionStore from '@deepseek-ai/dsh-session'
 it.each(['dsh-progress-commentary', 'dsh-reasoning-translation'])('loads built %s from its npm installation payload', async name => {
   const directory = resolve('.checks/packed', name)
   mkdirSync(directory, { recursive: true })
-  const unpack = spawnSync('tar', ['-xzf', resolve('dist', `${name}-${name.includes('translation') ? '0.2.0' : '0.1.0'}.tgz`), '-C', directory], { encoding: 'utf8' })
+  const unpack = spawnSync('tar', ['-xzf', resolve('dist', `${name}-0.2.0.tgz`), '-C', directory], { encoding: 'utf8' })
   expect(unpack.status).toBe(0)
   const root = resolve(directory, 'package')
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
   expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
-  expect(manifest.engines.dsh).toBe(name.includes('translation') ? '0.2.1-rc.2 || 0.2.1-rc.3' : '0.2.1-rc.3')
+  expect(manifest.engines.dsh).toBe('0.2.1-rc.2 || 0.2.1-rc.3')
   const plugin = await import(/* @vite-ignore */ pathToFileURL(resolve(root, 'lib/index.js')).href)
   const ctx = new Context()
   try {

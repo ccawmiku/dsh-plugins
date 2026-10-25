@@ -3,8 +3,8 @@ import { expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, LlmAdapter, ToolCallId, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
+import SystemPrompt, { renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
+import AgentRegistry, { assembleContextFor, type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import SessionProjections from '@deepseek-ai/dsh-session-projection'
 import Tools from '@deepseek-ai/dsh-tools'
@@ -63,6 +63,54 @@ it('preserves text beside real tool calls, uses no extra progress model request 
     expect(kinds.indexOf('assistant/message')).toBeLessThan(kinds.indexOf('tool/call'))
     expect(kinds.indexOf('tool/result')).toBeLessThan(kinds.lastIndexOf('assistant/message'))
   } finally { await ctx.fiber.dispose() }
+})
+
+it.each([180, 600])('honors a %s-second cadence, stays due when ignored, and resets only on public text', async intervalSeconds => {
+  let now = 1000
+  const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+  const ctx = await harness()
+  try {
+    await ctx.plugin(Progress, { intervalSeconds })
+    let agent: Agent
+    const reminders: boolean[] = []
+    class Observed extends Scripted {
+      override async *stream(options: GenerateOptions) {
+        reminders.push(renderContextSnapshot(await ctx.systemPrompt.assemble(assembleContextFor(agent))).includes('Progress update due:'))
+        yield* super.stream(options)
+      }
+    }
+    const toolStep = (n: number, announcement?: string): StreamChunk[] => [
+      ...(announcement ? text(announcement).slice(0, -1) : []),
+      { type: 'block-end', index: announcement ? 1 : 0, block: { type: 'tool-call', id: ToolCallId(`cadence-${n}`), name: 'echo', arguments: '{}' } },
+      { type: 'finish', reason: { kind: 'tool-calls' } },
+    ]
+    const model = new Observed([toolStep(1, '开始检查。'), [
+      { type: 'block-end', index: 1, block: { type: 'reasoning', text: 'Reasoning does not count as a public update.' } }, ...toolStep(2),
+    ], toolStep(3), toolStep(4, '发现了配置问题，正在修复。'), text('完成。')])
+    ctx.llm.registerAdapter(['main'], model)
+    let toolCalls = 0
+    ctx.tools.register({ name: 'echo', description: 'Clocked fixture', parameters: { type: 'object', properties: {} },
+      output: { schema: { type: 'string' }, render: () => [{ type: 'text', text: 'ok' }] },
+      execute: async () => {
+        now += 90000
+        if (++toolCalls === 3) {
+          // Opening another Session while this one is due must not reset this one's clock.
+          const other = await ctx.agentLoop.create(SessionId('progress-independent'), { provider: 'main', model: 'main-model' })
+          other.session.append('turn/start', { turn: 1 })
+          expect(renderContextSnapshot(await ctx.systemPrompt.assemble(assembleContextFor(other)))).not.toContain('Progress update due:')
+        }
+        return 'ok'
+      } })
+    let finished = false
+    ctx.on('session/event', (_session, event) => { if (event.type === 'turn/end') finished = true })
+    agent = await ctx.agentLoop.create(SessionId('progress-cadence'), { provider: 'main', model: 'main-model' })
+    agent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Long task' }] }))
+    await vi.waitFor(() => expect(finished).toBe(true))
+    expect(reminders).toEqual(intervalSeconds === 180 ? [false, false, true, true, false] : [false, false, false, false, false])
+    expect(model.requests).toHaveLength(5)
+    now += 600000
+    expect(renderContextSnapshot(await ctx.systemPrompt.assemble(assembleContextFor(agent)))).not.toContain('Progress update due:')
+  } finally { await ctx.fiber.dispose(); clock.mockRestore() }
 })
 
 it('translates only public reasoning through a different model, preserves originals, and stores replayable display records', async () => {

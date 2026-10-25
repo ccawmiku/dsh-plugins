@@ -1,12 +1,12 @@
 # 验证记录
 
-2026-10-25（北京时间），Windows x64，Node 24.19.0。翻译插件版本 0.2.0；进度插件源码保持 0.1.0。
+2026-10-25（北京时间），Windows x64，Node 24.19.0。翻译插件版本 0.2.0；进度插件版本 0.2.0。
 
 ## 自动化验证
 
 官方 DSH 基线 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`（0.2.1-rc.3），依照锁文件安装依赖，执行 `generate-typert.ts`，按真实项目引用构建 `vendor/loader` 和 `ui-chat` Client 类型。
 
-设置 `DSH_SOURCE` 后执行 `npm run check`：构建、Host／Client 分离严格类型检查、npm 打包与 **41 项测试**。测试使用真实 Cordis、Session、Agent Loop、ConversationNodeAssembler、React 和 DSH Markdown，模型及存储 flush 是 mock。
+设置 `DSH_SOURCE` 后执行 `npm run check`：构建、Host／Client 分离严格类型检查、npm 打包与 **43 项测试**。测试使用真实 Cordis、Session、Agent Loop、ConversationNodeAssembler、React 和 DSH Markdown，模型及存储 flush 是 mock。
 
 - 真实 Loop：只翻译公开 reasoning，不附带主会话；主模型文本与工具顺序不变，译文不进入 deriveMessages。
 - 无条数上限：单源超过 128 段、160 个待处理片段仍全部接纳；真实 Host 带旧配置 `maxCallsPerTurn: 1`／`maxPending: 1` 时，24 段仍全部翻译。请求维持串行，持久化失败不发请求。
@@ -33,3 +33,7 @@
 自动化模型响应与 flush 监听器为 mock，不证明真实翻译质量、速率、计费或断电耐久性。本次尚未使用真实模型 API。未补译旧历史，也未自动重试旧的失败／半成品。长任务无条数上限后可能产生更多费用和排队，单次请求长度、输出与超时仍保留。
 
 本机 rc.2 的接口核查不等于所有 rc.2 发行构建已验收。后续 DSH 更新、Session 格式迁移仍需要重新验证。
+
+## 进度插件持续更新回归
+
+0.2.0 默认沉默提醒为 180 秒，按用户“太快了”的反馈放弃每 4 步／60 秒方案。真实 Agent Loop 配合 mock 时钟与工具，验证 180 秒触发、600 秒配置不会提前触发、忽略提醒不会重置、reasoning 不算公开文字、实际公开文字重置、回合结束清除以及 Session 隔离。固定 5 次原有主模型请求，不增加请求。只验证提醒注入与调用数量，不能把 mock 模型输出当作真实模型遵从率证明。
