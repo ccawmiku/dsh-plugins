@@ -18,7 +18,7 @@ it.each(['dsh-progress-commentary', 'dsh-reasoning-translation'])('loads built %
   const root = resolve(directory, 'package')
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
   expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
-  expect(manifest.engines.dsh).toBe(name.includes('translation') ? '0.2.1-rc.2 || 0.2.1-rc.3' : '0.2.1-rc.3')
+  expect(manifest.engines.dsh).toBe('0.2.1-rc.2 || 0.2.1-rc.3')
   const plugin = await import(/* @vite-ignore */ pathToFileURL(resolve(root, 'lib/index.js')).href)
   const ctx = new Context()
   try {
