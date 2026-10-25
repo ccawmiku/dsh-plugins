@@ -12,7 +12,8 @@ import SessionStore from '@deepseek-ai/dsh-session'
 it.each(['dsh-progress-commentary', 'dsh-reasoning-translation'])('loads built %s from its npm installation payload', async name => {
   const directory = resolve('.checks/packed', name)
   mkdirSync(directory, { recursive: true })
-  const unpack = spawnSync('tar', ['-xzf', resolve('dist', `${name}-0.2.0.tgz`), '-C', directory], { encoding: 'utf8' })
+  const version = JSON.parse(readFileSync(resolve('packages', name, 'package.json'), 'utf8')).version
+  const unpack = spawnSync('tar', ['-xzf', resolve('dist', `${name}-${version}.tgz`), '-C', directory], { encoding: 'utf8' })
   expect(unpack.status).toBe(0)
   const root = resolve(directory, 'package')
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))

@@ -11,7 +11,7 @@ import Tools from '@deepseek-ai/dsh-tools'
 import * as NativeTools from '@deepseek-ai/dsh-tool-executor-native'
 import * as Progress from '../packages/dsh-progress-commentary/src/index.ts'
 import * as Translation from '../packages/dsh-reasoning-translation/src/index.ts'
-import { REQUEST, RESULT } from '../packages/dsh-reasoning-translation/src/records.ts'
+import { REQUEST, RESULT, parseRecord } from '../packages/dsh-reasoning-translation/src/records.ts'
 
 class Scripted extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
@@ -184,4 +184,47 @@ it('keeps the main task working when enabled translation is missing its route', 
     expect(main.requests).toHaveLength(1)
     expect(events.filter(e => String(e.type) === REQUEST)).toHaveLength(0)
   } finally { await ctx.fiber.dispose() }
+})
+
+it('cancels translation from earlier completed turns when the owning agent is disposed', async () => {
+  const ctx = await harness()
+  let release = () => {}
+  try {
+    ctx.on('session/flush', () => {})
+    const reasoning = (source: string): StreamChunk[] => [
+      { type: 'reasoning-delta', index: 0, text: source },
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: source } }, ...text('Final'),
+    ]
+    const main = new Scripted([reasoning('First paragraph.\n\nSecond paragraph.\n\n'), reasoning('Next turn.\n\n')])
+    class SlowTranslation extends LlmAdapter {
+      readonly requests: GenerateOptions[] = []
+      override async resolveModel(provider: string, model: string) { return { provider, id: model, name: model } }
+      override async *stream(options: GenerateOptions) {
+        this.requests.push(options)
+        await new Promise<void>(resolve => { release = resolve })
+        yield* text('Late translation')
+      }
+    }
+    const auxiliary = new SlowTranslation()
+    ctx.llm.registerAdapter(['main'], main); ctx.llm.registerAdapter(['aux'], auxiliary)
+    const events: SessionEvent[] = []
+    ctx.on('session/event', (_session, event) => { events.push(event) })
+    await ctx.plugin(Translation, { enabled: true, provider: 'aux', model: 'translation-model' })
+    const handle = await ctx.agents.create({ sessionId: SessionId('translation-dispose-multiple-turns'),
+      agentOptions: { provider: 'main', model: 'main-model' } })
+    const followup = () => handle.agent.followup(createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Test' }] }))
+    followup()
+    await vi.waitFor(() => expect(events.filter(e => e.type === 'turn/end')).toHaveLength(1))
+    await vi.waitFor(() => expect(auxiliary.requests).toHaveLength(1))
+    followup()
+    await vi.waitFor(() => expect(events.filter(e => e.type === 'turn/end')).toHaveLength(2))
+    expect(events.filter(e => String(e.type) === REQUEST)).toHaveLength(3)
+    await handle.dispose()
+    expect(auxiliary.requests[0]?.signal?.aborted).toBe(true)
+    release()
+    // Drain promise continuations without giving the adapter a second request to finish.
+    await new Promise<void>(resolve => setTimeout(resolve, 0))
+    expect(auxiliary.requests).toHaveLength(1)
+    expect(events.map(parseRecord).filter(record => record?.kind === 'result' && record.data.status === 'translated')).toHaveLength(0)
+  } finally { release(); await ctx.fiber.dispose() }
 })

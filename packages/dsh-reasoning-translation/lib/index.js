@@ -205,6 +205,7 @@ function apply(ctx, config) {
   const queue = new TranslationQueue();
   const turns = /* @__PURE__ */ new Map();
   const attempts = /* @__PURE__ */ new Map();
+  const sessionLifetimes = /* @__PURE__ */ new Map();
   let enabledLifetime = new AbortController();
   let disposed = false;
   let reportedConfigurationError = false;
@@ -240,6 +241,12 @@ function apply(ctx, config) {
   const feed = (agent, state, block) => {
     let current = state.feeds.get(block);
     if (current) return current;
+    let lifetime = sessionLifetimes.get(agent.session);
+    if (!lifetime) {
+      lifetime = new AbortController();
+      sessionLifetimes.set(agent.session, lifetime);
+    }
+    const sessionSignal = lifetime.signal;
     current = new ParagraphFeed(
       config.maxCharsPerCall,
       (source, offset) => {
@@ -262,7 +269,7 @@ function apply(ctx, config) {
         const accepted = queue.enqueue({
           request,
           settings: selected,
-          signal: AbortSignal.any([state.turn.controller.signal, enabledLifetime.signal]),
+          signal: AbortSignal.any([state.turn.controller.signal, enabledLifetime.signal, sessionSignal]),
           record: () => {
             appendPluginRecord(agent.session, REQUEST, request);
           },
@@ -270,7 +277,7 @@ function apply(ctx, config) {
             if (!await ctx.sessions.flush(agent.session)) throw new Error("No durable Session persistence");
           },
           settle: async (result) => {
-            if (disposed) return;
+            if (disposed || sessionSignal.aborted) return;
             appendPluginRecord(agent.session, RESULT, result);
             await ctx.sessions.flush(agent.session);
           },
@@ -337,10 +344,14 @@ function apply(ctx, config) {
   });
   ctx.on("agent/disposed", ({ agent }) => {
     attempts.delete(agent);
+    sessionLifetimes.get(agent.session)?.abort();
+    sessionLifetimes.delete(agent.session);
     turns.get(agent.session)?.controller.abort();
     turns.delete(agent.session);
   });
   ctx.on("session/disposed", (session) => {
+    sessionLifetimes.get(session)?.abort();
+    sessionLifetimes.delete(session);
     turns.get(session)?.controller.abort();
     turns.delete(session);
     for (const [agent] of attempts) if (agent.session === session) attempts.delete(agent);
@@ -352,6 +363,7 @@ function apply(ctx, config) {
     await queue.dispose();
     attempts.clear();
     turns.clear();
+    sessionLifetimes.clear();
   });
 }
 export {

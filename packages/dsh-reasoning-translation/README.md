@@ -1,11 +1,11 @@
-# dsh-reasoning-translation 0.2.0
+# dsh-reasoning-translation 0.2.1
 
 把 DSH 已公开的 reasoning 翻译成聊天中的自然段落，使用 DSH 原生 Markdown 与主题排版。去掉卡片边框、灰化正文和顶部模型信息；下方的小号“思考译文”展开原文与模型来源。译文支持逐步显示。
 
 支持 DSH `0.2.1-rc.2`／`0.2.1-rc.3`，Node ≥24.9.0。源码验证基线为官方提交 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60`，其他构建须重新验收。
 
 ```sh
-dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.2.0.tgz
+dsh plugin --profile web add /绝对路径/dsh-reasoning-translation-0.2.1.tgz
 ```
 
 桌面版用内置插件管理器安装，升级后重启。进入 **设置 → 思考翻译**，查看当前模型，从已配置模型目录中选择，或手动填写 `provider` 路由与 `model` ID，再开启并保存。凭证仍由 DSH 管理，插件没有 API key 字段。新片段立即使用新配置，已排队片段保留原配置快照。
@@ -23,3 +23,5 @@ dsh plugin --profile web remove dsh-reasoning-translation
 ```
 
 完整配置、验证范围和进度插件说明见仓库根目录 README 与 docs/VALIDATION.md。
+
+0.2.1 修复跨轮次积压的生命周期取消：销毁 Agent／Session 时，较早已完成主回合的翻译也会中止，排队请求不再派发；不向已销毁 Session 追加迟到结果。会话恢复不自动续译未完成项。
