@@ -10,5 +10,11 @@
   "claude_code": {
     "sha": "30fa83c68c77d2e3a7a42f1407831ec252511130"
   },
-  "npm_dsh_llm_latest_observed": "0.0.1-rc.1"
+  "npm_dsh_llm_latest_observed": "0.0.1-rc.1",
+  "prompt_style_review": {
+    "date": "2026-10-25",
+    "codex_sha": "970111f6cb62cc02fe36a82ea7d71b37a2889c97",
+    "claude_code_sha": "318b7e6ac4e726e88a4ad326214866a93c373b1b",
+    "dsh_sha": "22ddee3792402c3e70ec5f86a63c3e3e895a2f60"
+  }
 }

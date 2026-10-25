@@ -58,7 +58,7 @@ export function apply(ctx: Context, config: Config): void {
       const state = agent && activity.get(agent.session)
       const due = state && Date.now() - state.lastTextAt >= config.intervalSeconds.get() * 1000
       const reminder = due
-        ? '\n\nProgress update due: the current turn has continued without public assistant text for the configured interval. The opening announcement does not satisfy ongoing updates. In your next response, briefly explain a concrete finding, what has changed, or what you are checking next in ordinary assistant text alongside the real tool calls. If the work is finished, give the final answer instead. Do not repeat this reminder or invent progress.'
+        ? '\n\nProgress update due: the user has not heard from you for a while. Give one short, natural update grounded in the work so far: a useful finding, a changed approach, a blocker, or the question you are resolving and why it matters. Group related checks instead of announcing individual reads, searches or commands. If there is no new result, say what remains unresolved without inventing progress. Continue with the actual tools if needed; if finished, answer normally. Do not mention the reminder or elapsed interval.'
         : ''
       return `${policy}\n\nCommentary language preference: ${config.language.get()}${reminder}`
     },
