@@ -1,6 +1,6 @@
 # DSH 聊天进度与公开思考翻译插件
 
-源码与安装包：[ccawmiku/dsh-conversation-plugins](https://github.com/ccawmiku/dsh-conversation-plugins)（仓库）。两个插件独立安装、启用和卸载，不修改 DSH 核心。
+源码与安装包：[dsh-plugins / dsh-conversation-plugins](https://github.com/ccawmiku/dsh-plugins/tree/main/dsh-conversation-plugins)（仓库）。两个插件独立安装、启用和卸载，不修改 DSH 核心。
 
 | 插件 | 当前定位 |
 | --- | --- |

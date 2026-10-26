@@ -24,7 +24,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ccawmiku/dsh-salon.git"
+    "url": "git+https://github.com/ccawmiku/dsh-plugins.git",
+    "directory": "dsh-salon"
   },
   "keywords": [
     "dsh",

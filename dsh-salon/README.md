@@ -24,8 +24,8 @@
 
 1. 克隆本仓库（或在 GitHub 页面点击 **Code -> Download ZIP** 下载并解压）：
    ```powershell
-   git clone https://github.com/ccawmiku/dsh-salon.git
-   cd dsh-salon
+   git clone https://github.com/ccawmiku/dsh-plugins.git
+   cd dsh-plugins/dsh-salon
    ```
 2. 在项目根目录执行一键安装脚本：
    ```powershell
@@ -36,18 +36,14 @@
 
 ---
 
-### 方式二：通过 DSH 命令行直接安装 GitHub 仓库
+### 方式二：通过 DSH 命令行安装本地子目录
 
-如果你已配置好 DSH 命令行环境：
+先按方式一克隆私有仓库（需要具备仓库访问权限），进入 `dsh-plugins/dsh-salon` 后执行：
 ```powershell
-dsh plugin --profile desktop add https://github.com/ccawmiku/dsh-salon
+dsh plugin --profile desktop add .
 ```
 
-> **提示**：若未配置全局 `dsh` 命令，可直接在 PowerShell 中调用 DSH NEXT 内置运行器执行：
-> ```powershell
-> $env:ELECTRON_RUN_AS_NODE = "1"
-> & "$env:LOCALAPPDATA\Programs\DSH NEXT\DSH NEXT.exe" "$env:LOCALAPPDATA\Programs\DSH NEXT\resources\app.asar\lib\plugin-cli.js" desktop add "https://github.com/ccawmiku/dsh-salon"
-> ```
+也可使用方式一的 `install.ps1`，由已安装的 DSH NEXT 运行器安装当前插件目录。集合仓库根目录包含多个插件，不作为单个 DSH 包安装。
 
 ---
 
@@ -55,8 +51,8 @@ dsh plugin --profile desktop add https://github.com/ccawmiku/dsh-salon
 
 如果你希望二次开发或修改客户端界面：
 ```powershell
-git clone https://github.com/ccawmiku/dsh-salon.git
-cd dsh-salon
+git clone https://github.com/ccawmiku/dsh-plugins.git
+cd dsh-plugins/dsh-salon
 npm install
 npm run build
 powershell -ExecutionPolicy Bypass -File .\install.ps1
