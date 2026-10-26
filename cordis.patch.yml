@@ -1,0 +1,3 @@
+- insert:
+    - id: immich
+      name: dsh-plugin-immich
