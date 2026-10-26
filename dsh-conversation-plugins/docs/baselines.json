@@ -1,0 +1,25 @@
+{
+  "dsh_source_commit": "22ddee3792402c3e70ec5f86a63c3e3e895a2f60",
+  "dsh_source_version": "0.2.1-rc.3",
+  "codex_source_commit": "970111f6cb62cc02fe36a82ea7d71b37a2889c97",
+  "claude_code_source_commit": "30fa83c68c77d2e3a7a42f1407831ec252511130",
+  "reviewed_repos": {
+    "deepseek_harness": "22ddee3792402c3e70ec5f86a63c3e3e895a2f60",
+    "codex": "970111f6cb62cc02fe36a82ea7d71b37a2889c97",
+    "claude_code": "30fa83c68c77d2e3a7a42f1407831ec252511130"
+  },
+  "npm_dsh_llm_latest_observed": "0.0.1-rc.1",
+  "latest_review": {
+    "date_utc": "2026-10-24",
+    "delivery_base_sha": "552f4b1741d142c13420862430ddbc8dfcff5d73",
+    "dsh_head_unchanged": true,
+    "codex_head_unchanged": true,
+    "claude_code_head_reviewed": "318b7e6ac4e726e88a4ad326214866a93c373b1b"
+  },
+  "prompt_style_review": {
+    "date": "2026-10-25",
+    "codex_sha": "970111f6cb62cc02fe36a82ea7d71b37a2889c97",
+    "claude_code_sha": "318b7e6ac4e726e88a4ad326214866a93c373b1b",
+    "dsh_sha": "22ddee3792402c3e70ec5f86a63c3e3e895a2f60"
+  }
+}
