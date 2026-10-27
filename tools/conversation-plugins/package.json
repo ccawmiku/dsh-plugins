@@ -1,0 +1,25 @@
+{
+  "name": "dsh-conversation-plugin-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "vitest run",
+    "check": "npm run build && npm run typecheck && npm run pack && npm test",
+    "pack": "node scripts/pack.mjs"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.7",
+    "esbuild": "^0.28.0",
+    "jsdom": "^29.1.1",
+    "react": "~18.3.1",
+    "react-dom": "~18.3.1",
+    "typescript": "^6.0.3",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.11"
+  }
+}

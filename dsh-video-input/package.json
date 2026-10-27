@@ -1,0 +1,29 @@
+{
+  "name": "dsh-video-input",
+  "version": "0.1.0",
+  "description": "在 DSH 加号菜单添加多视频上传，复用当前模型直传视频并在不支持时自动抽帧",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": ["src", "lib", "locale", "docs", "icon.svg", "cordis.patch.yml", "README.md", "LICENSE"],
+  "license": "MIT",
+  "author": "ccawmiku",
+  "repository": {"type": "git", "url": "git+https://github.com/ccawmiku/dsh-plugins.git", "directory": "dsh-video-input"},
+  "engines": {"node": ">=24.9.0", "dsh": "0.2.1-rc.2 || 0.2.1-rc.3"},
+  "keywords": ["dsh-plugin", "video", "gemini", "deepseek-harness"],
+  "dsh": {
+    "bundle": {"patch": "./cordis.patch.yml"},
+    "client": {"platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-client-ui-commands", "@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-plugin-manager"], "external": []}
+  },
+  "dependencies": {"@deepseek-ai/schemastery": "3.18.5"},
+  "peerDependencies": {"@deepseek-ai/dsh-llm": "0.2.1-rc.2 || 0.2.1-rc.3"},
+  "peerDependenciesMeta": {"@deepseek-ai/dsh-llm": {"optional": true}},
+  "scripts": {"build": "node scripts/build.mjs", "test": "vitest run", "test:live": "vitest run tests/live.spec.js", "pack:plugin": "npm run build && npm pack --ignore-scripts --pack-destination dist"},
+  "devDependencies": {"esbuild": "^0.28.0", "vitest": "^4.1.11", "typescript": "^6.0.3", "react": "~18.3.1", "react-dom": "~18.3.1", "@testing-library/react": "^16.3.3", "jsdom": "^29.1.1", "playwright": "^1.56.1"}
+}

@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-video-input
+      name: dsh-video-input
+      config: {}
