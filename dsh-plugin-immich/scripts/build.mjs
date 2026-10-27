@@ -1,21 +1,9 @@
 import { mkdir, cp, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 
-let build;
-try {
-  const esbuild = await import('esbuild');
-  build = esbuild.build;
-} catch (e) {
-  // Fallback to locally known esbuild installation if present
-  const fallbackPath = 'C:/Users/19070/Documents/ChatGPT/群组ai/node_modules/esbuild/lib/main.js';
-  if (existsSync(fallbackPath)) {
-    const esbuild = await import('file:///' + fallbackPath.replace(/\\/g, '/'));
-    build = esbuild.build;
-  } else {
-    throw new Error('未找到 esbuild，请在插件目录运行 npm install 或 pnpm install');
-  }
-}
+process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 
 await mkdir('lib', { recursive: true });
 await cp('src', 'lib', { recursive: true });

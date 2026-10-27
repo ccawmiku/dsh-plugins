@@ -1,82 +1,126 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfigManager } from '../src/config.mjs';
-import { ImmichClient } from '../src/immich.mjs';
-import { createAPI } from '../src/api.mjs';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { ConfigManager } from '../src/config.mjs';
+import { createAPI } from '../src/api.mjs';
+import { ImmichClient } from '../src/immich.mjs';
 
-test('ConfigManager: 读写、校验与脱敏', async () => {
-  const tempDir = join(tmpdir(), 'dsh-immich-test-' + randomUUID());
-  const mgr = new ConfigManager(tempDir);
-  const cfg = await mgr.load();
-  assert.equal(cfg.videoMode, 'direct');
-  assert.equal(cfg.pageSize, 60);
+async function manager(t) {
+  const directory = await mkdtemp(join(tmpdir(), 'immich-test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  return new ConfigManager(directory);
+}
 
-  // 保存设置
-  await mgr.save({
-    immichUrl: 'http://192.168.1.21:2283/',
-    apiKey: 'my-super-secret-immich-key-12345678',
-    videoMode: 'frames',
-    maxFrames: 16
-  });
-
-  assert.equal(mgr.config.immichUrl, 'http://192.168.1.21:2283');
-  assert.equal(mgr.config.apiKey, 'my-super-secret-immich-key-12345678');
-  assert.equal(mgr.config.videoMode, 'frames');
-  assert.equal(mgr.config.maxFrames, 16);
-
-  // 脱敏校验
-  const redacted = mgr.redacted();
-  assert.equal(redacted.hasApiKey, true);
-  assert.ok(redacted.apiKey.includes('••••••••'));
-  assert.ok(!redacted.apiKey.includes('super-secret'));
+test('config preserves stored credentials across omitted, masked and repeated saves', async t => {
+  const config = await manager(t);
+  await config.save({ immichUrl: 'localhost:2283/api/', apiKey: 'test-secret-123456' });
+  assert.equal(config.config.immichUrl, 'http://localhost:2283');
+  assert.equal(config.redacted().apiKey, '••••••••');
+  assert.equal(JSON.stringify(config.redacted()).includes('test-secret'), false);
+  await config.save({ videoMode: 'frames' });
+  await config.save({ apiKey: config.redacted().apiKey });
+  await config.save({ apiKey: 'test••••••••3456' });
+  assert.equal(config.config.apiKey, 'test-secret-123456');
+  await config.save({ apiKey: 'replacement' });
+  assert.equal(config.config.apiKey, 'replacement');
+  await config.save({ apiKey: '' });
+  assert.equal(config.redacted().hasApiKey, false);
 });
 
-test('ImmichClient: 连通性测试（无效配置时友好报错）', async () => {
-  const tempDir = join(tmpdir(), 'dsh-immich-test-' + randomUUID());
-  const mgr = new ConfigManager(tempDir);
-  const client = new ImmichClient(mgr);
-
-  // 缺少 URL 或 Key 时拒绝
-  await assert.rejects(async () => {
-    await client.testConnection('', '');
-  }, /服务器地址不能为空/);
+test('concurrent saves are serialized without losing changes', async t => {
+  const config = await manager(t);
+  await Promise.all([config.save({ apiKey: 'secret' }), config.save({ videoMode: 'frames' }), config.save({ pageSize: 20 })]);
+  const saved = JSON.parse(await readFile(config.file, 'utf8'));
+  assert.equal(saved.apiKey, 'secret');
+  assert.equal(saved.videoMode, 'frames');
+  assert.equal(saved.pageSize, 20);
 });
 
-test('createAPI: 路由分发与错误处理', async () => {
-  const tempDir = join(tmpdir(), 'dsh-immich-test-' + randomUUID());
-  const mgr = new ConfigManager(tempDir);
-  const client = new ImmichClient(mgr);
-  const handler = createAPI(mgr, client);
+test('invalid settings do not overwrite working configuration', async t => {
+  const config = await manager(t);
+  await config.save({ apiKey: 'secret' });
+  const before = await readFile(config.file, 'utf8');
+  for (const patch of [null, [], { immichUrl: 'ftp://server' }, { immichUrl: 'https://user:pass@server' }, { immichUrl: 'https://server?key=secret' }, { maxFrames: 31 }, { frameInterval: Infinity }, { videoMode: 'unknown' }, { apiKey: 'x\ny' }]) {
+    await assert.rejects(config.save(patch));
+    assert.equal(await readFile(config.file, 'utf8'), before);
+  }
+  await config.save({ pageSize: 25 });
+  assert.equal(config.config.pageSize, 25);
+});
 
-  // 1. GET /api/immich/config
-  const req1 = new Request('http://localhost/api/immich/config', { method: 'GET' });
-  const res1 = await handler(req1);
-  assert.equal(res1.status, 200);
-  const json1 = await res1.json();
-  assert.equal(json1.hasApiKey, false);
+test('damaged configuration is reported instead of silently replacing the credential', async t => {
+  const config = await manager(t);
+  await writeFile(config.file, '{broken json');
+  await assert.rejects(config.save({ pageSize: 30 }), /无法读取/);
+  assert.equal(await readFile(config.file, 'utf8'), '{broken json');
+});
 
-  // 2. POST /api/immich/config
-  const req2 = new Request('http://localhost/api/immich/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ immichUrl: 'http://192.168.1.100:2283', apiKey: 'testkey123456' })
+test('API rejects invalid JSON, bodies, pagination, IDs and methods', async t => {
+  const config = await manager(t);
+  const handler = createAPI(config, new ImmichClient(config));
+  for (const body of ['{bad', 'null', '[]']) {
+    const response = await handler(new Request('http://localhost/api/immich/config', { method: 'POST', body }));
+    assert.equal(response.status, 400);
+  }
+  for (const path of ['timeline?page=-1', 'timeline?size=201', 'timeline?page=1.5', 'thumbnail?id=../config', 'original']) {
+    const response = await handler(new Request('http://localhost/api/immich/' + path));
+    assert.equal(response.status, 400, path);
+  }
+  assert.equal((await handler(new Request('http://localhost/api/immich/search', { method: 'DELETE' }))).status, 405);
+  assert.equal((await handler(new Request('http://localhost/api/immich/unknown'))).status, 404);
+});
+
+test('API config responses never expose the key and do not permit caching', async t => {
+  const config = await manager(t);
+  await config.save({ apiKey: 'private-secret' });
+  const response = await createAPI(config, {})(new Request('http://localhost/api/immich/config'));
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal((await response.text()).includes('private-secret'), false);
+});
+
+test('original media forwards Range/If-Range and preserves 206 headers and bytes', async t => {
+  const config = await manager(t);
+  const handler = createAPI(config, {
+    getOriginalResponse: async (id, options) => {
+      assert.equal(id, 'video-1');
+      assert.deepEqual(options.headers, { range: 'bytes=2-4', 'if-range': '"etag"' });
+      return new Response('cde', { status: 206, headers: {
+        'content-type': 'video/mp4', 'content-range': 'bytes 2-4/6', 'content-length': '3', 'accept-ranges': 'bytes'
+      } });
+    }
   });
-  const res2 = await handler(req2);
-  assert.equal(res2.status, 200);
-  const json2 = await res2.json();
-  assert.equal(json2.success, true);
-  assert.equal(json2.config.immichUrl, 'http://192.168.1.100:2283');
+  const response = await handler(new Request('http://localhost/api/immich/original?id=video-1', {
+    headers: { Range: 'bytes=2-4', 'If-Range': '"etag"' }
+  }));
+  assert.equal(response.status, 206);
+  assert.equal(response.headers.get('content-range'), 'bytes 2-4/6');
+  assert.equal(response.headers.get('content-length'), '3');
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(await response.text(), 'cde');
+});
 
-  // 3. GET /api/immich/thumbnail 缺少 id
-  const req3 = new Request('http://localhost/api/immich/thumbnail', { method: 'GET' });
-  const res3 = await handler(req3);
-  assert.equal(res3.status, 400);
+test('media proxies preserve 416 and protect thumbnail caches', async t => {
+  const config = await manager(t);
+  const handler = createAPI(config, {
+    getOriginalResponse: async () => new Response(null, { status: 416, headers: { 'content-range': 'bytes */6' } }),
+    getThumbnailResponse: async () => new Response('image', { headers: { 'content-type': 'image/jpeg' } })
+  });
+  const original = await handler(new Request('http://localhost/api/immich/original?id=id'));
+  assert.equal(original.status, 416);
+  assert.equal(original.headers.get('content-range'), 'bytes */6');
+  const thumbnail = await handler(new Request('http://localhost/api/immich/thumbnail?id=id'));
+  assert.equal(thumbnail.headers.get('cache-control'), 'private, max-age=300');
+});
 
-  // 4. 未知路径返回 404
-  const req4 = new Request('http://localhost/api/immich/unknown', { method: 'GET' });
-  const res4 = await handler(req4);
-  assert.equal(res4.status, 404);
+test('frame overrides reject out-of-range options before extraction', async t => {
+  const config = await manager(t);
+  const handler = createAPI(config, { extractVideoFrames: () => assert.fail('must not extract') });
+  for (const maxFrames of [0, -1, 31, 'NaN', 1.5]) {
+    const response = await handler(new Request('http://localhost/api/immich/convert-frames', {
+      method: 'POST', body: JSON.stringify({ id: 'video', maxFrames })
+    }));
+    assert.equal(response.status, 400);
+  }
 });

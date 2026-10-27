@@ -9,19 +9,35 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
     maxFrames: 12,
     frameInterval: 2
   });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [clearApiKey, setClearApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveNotice, setSaveNotice] = useState(null);
 
   useEffect(() => {
-    fetch('/api/immich/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data && !data.error) setConfig(data);
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError(null);
+    fetch('/api/immich/config', { signal: controller.signal })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '无法读取配置');
+        if (!controller.signal.aborted) setConfig({ ...data, apiKey: '', maxFrames: Math.min(data.maxFrames, 30) });
       })
-      .catch(() => {});
-  }, []);
+      .catch(error => { if (!controller.signal.aborted) setLoadError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [loadAttempt]);
+
+  const payload = () => {
+    const { apiKey, hasApiKey, ...settings } = config;
+    if (clearApiKey || apiKey.trim()) settings.apiKey = clearApiKey ? '' : apiKey.trim();
+    return settings;
+  };
 
   const handleTest = async () => {
     setTesting(true);
@@ -32,7 +48,7 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           immichUrl: config.immichUrl,
-          apiKey: config.apiKey
+          ...(clearApiKey || config.apiKey.trim() ? { apiKey: clearApiKey ? '' : config.apiKey.trim() } : {})
         })
       });
       const data = await res.json();
@@ -55,10 +71,12 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
       const res = await fetch('/api/immich/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        body: JSON.stringify(payload())
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setConfig({ ...data.config, apiKey: '' });
+        setClearApiKey(false);
         setSaveNotice({ ok: true, msg: '配置已保存成功！' });
         if (onSaved) onSaved(data.config);
       } else {
@@ -71,8 +89,12 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
     }
   };
 
+  if (loading) return <p role="status">正在读取 Immich 设置...</p>;
+  if (loadError) return <div role="alert">{loadError} <button onClick={() => setLoadAttempt(value => value + 1)}>重试</button></div>;
+
   return (
-    <div style={{ padding: standalone ? '20px' : '10px 0', maxWidth: '640px', color: 'inherit' }}>
+    <div className="dsh-immich-settings" style={{ padding: standalone ? '20px' : '10px 0', maxWidth: '640px', color: 'inherit' }}>
+      <fieldset disabled={saving || testing} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 600 }}>Immich 相册连接与输入设置</h3>
 
       <div style={{ marginBottom: '16px' }}>
@@ -101,8 +123,10 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
         <input
           type="password"
           value={config.apiKey || ''}
-          placeholder={config.hasApiKey ? '已保存 Key（重新输入将覆盖）' : '请输入 Immich 生成的 API Key'}
-          onChange={e => setConfig({ ...config, apiKey: e.target.value })}
+          placeholder={clearApiKey ? '保存后将清除 Key' : config.hasApiKey ? '已保存 Key（留空保留，输入新值替换）' : '请输入 Immich 生成的 API Key'}
+          onChange={e => { setClearApiKey(false); setConfig({ ...config, apiKey: e.target.value }); }}
+          autoComplete="new-password"
+          aria-label="Immich API Key"
           style={{
             width: '100%',
             height: '36px',
@@ -114,6 +138,9 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
             fontSize: '13px'
           }}
         />
+        {config.hasApiKey && <button type="button" className="dsh-immich-btn-secondary" onClick={() => { setClearApiKey(value => !value); setConfig({ ...config, apiKey: '' }); }}>
+          {clearApiKey ? '撤销清除 API Key' : '清除已保存 API Key'}
+        </button>}
         <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '4px' }}>在 Immich 网页端右上角头像 -&gt; 账户设置 -&gt; API Keys 中生成</div>
       </div>
 
@@ -145,7 +172,7 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
 
       <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>视频输入处理策略</h4>
       <div style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '8px' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
             <input
               type="radio"
@@ -208,7 +235,7 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
                 type="number"
                 step="0.5"
                 min="0.5"
-                max="30"
+                max="60"
                 value={config.frameInterval || 2}
                 onChange={e => setConfig({ ...config, frameInterval: parseFloat(e.target.value) || 2 })}
                 style={{
@@ -241,6 +268,7 @@ export function ImmichSettingsView({ onSaved, standalone = false }) {
           </span>
         )}
       </div>
+      </fieldset>
     </div>
   );
 }

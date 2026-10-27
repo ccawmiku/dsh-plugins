@@ -5,6 +5,10 @@ export const injectStyles = () => {
   const style = document.createElement('style');
   style.id = tagId;
   style.textContent = `
+    .dsh-immich-modal-container *, .dsh-immich-settings * { box-sizing: border-box; }
+    button.dsh-immich-check, button.dsh-immich-card-zoom { padding: 0; color: inherit; cursor: pointer; font: inherit; }
+    button.dsh-immich-card-zoom { border: none; }
+    .dsh-immich-icon-btn:focus-visible, .dsh-immich-check:focus-visible, .dsh-immich-card-zoom:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
     .dsh-immich-modal-backdrop {
       position: fixed;
       top: 0;
@@ -55,14 +59,24 @@ export const injectStyles = () => {
     }
     .dsh-immich-search-bar {
       flex: 1;
+      min-width: 160px;
       position: relative;
       display: flex;
       align-items: center;
+      padding-left: 36px;
+      background: var(--dsw-specific-input-major, rgba(255, 255, 255, 0.06));
+      border: 1px solid var(--dsw-alias-border-l2-darkmode-thin, rgba(255, 255, 255, 0.12));
+      border-radius: 999px;
     }
+    .dsh-immich-search-bar:focus-within { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.25); }
+    .dsh-immich-search-bar select { border: 0; font: inherit; font-size: 12px; margin-right: 8px; }
+    .dsh-immich-search-bar option { background: #1e1e24; color: #f0f0f4; }
     .dsh-immich-search-input {
-      width: 100%;
+      flex: 1;
+      width: 0;
+      min-width: 0;
       height: 36px;
-      padding: 0 34px 0 36px;
+      padding: 0 34px 0 0;
       background: var(--dsw-specific-input-major, rgba(255, 255, 255, 0.06));
       border: 1px solid var(--dsw-alias-border-l2-darkmode-thin, rgba(255, 255, 255, 0.12));
       border-radius: 999px;
@@ -71,11 +85,15 @@ export const injectStyles = () => {
       outline: none;
       transition: all 0.2s ease;
     }
-    .dsh-immich-search-input:focus {
-      border-color: #6366f1;
-      background: var(--dsw-alias-surface-primary, #18181b);
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    .dsh-immich-search-input, .dsh-immich-search-input:focus { border: none; background: transparent; box-shadow: none; }
+    @media (max-width: 760px) {
+      .dsh-immich-header { flex-wrap: wrap; gap: 10px; padding: 12px; }
+      .dsh-immich-title-box { flex: 1; }
+      .dsh-immich-search-bar { order: 3; flex-basis: 100%; }
+      .dsh-immich-video-mode-switch { order: 4; }
+      .dsh-immich-body, .dsh-immich-footer { padding: 12px; }
     }
+    .dsh-immich-card:focus-within .dsh-immich-check, .dsh-immich-card:focus-within .dsh-immich-card-zoom { opacity: 1; }
     .dsh-immich-search-icon {
       position: absolute;
       left: 12px;
@@ -310,4 +328,5 @@ export const injectStyles = () => {
     }
   `;
   document.head.appendChild(style);
+  return () => style.remove();
 };

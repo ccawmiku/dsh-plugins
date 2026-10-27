@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   IconImmich,
   IconSearch,
@@ -9,16 +9,19 @@ import {
   IconSparkles,
   IconZoomIn
 } from './icons.jsx';
+import { activateDialog } from './dialog.mjs';
+import { formatDuration } from '../src/media.mjs';
 import { Lightbox } from './lightbox.jsx';
 import { ImmichSettingsView } from './settings.jsx';
 
-export function ImmichGalleryModal({ isOpen, onClose }) {
+export function ImmichGalleryModal({ isOpen, onClose, onAttach, validateTarget }) {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [isSmartSearch, setIsSmartSearch] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedAssets, setSelectedAssets] = useState(new Map());
+  const [searchMode, setSearchMode] = useState('auto');
   const [videoMode, setVideoMode] = useState('direct');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -28,136 +31,136 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
   const [submitProgress, setSubmitProgress] = useState('');
 
   const bodyRef = useRef(null);
+  const dialogRef = useRef(null);
+  const requestRef = useRef(null);
+  const submitRef = useRef(null);
+  const submittingRef = useRef(false);
+  const activeSearch = useRef({ query: '', mode: 'auto' });
 
-  // 初始化加载配置
+  const loadAssets = async (targetPage = 1, reset = false, search = activeSearch.current) => {
+    if (!reset && requestRef.current) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    activeSearch.current = search;
+    setLoading(true);
+    setError(null);
+    if (reset) {
+      setAssets([]);
+      setHasMore(false);
+      if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    }
+    try {
+      const params = new URLSearchParams({ page: String(targetPage) });
+      let endpoint = '/api/immich/timeline';
+      if (search.query) {
+        endpoint = '/api/immich/search';
+        params.set('q', search.query);
+        params.set('mode', search.mode);
+      }
+      const res = await fetch(`${endpoint}?${params}`, { signal: controller.signal });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '获取媒体失败');
+      if (controller.signal.aborted) return;
+      setAssets(previous => [...new Map((reset ? data.items || [] : [...previous, ...(data.items || [])]).map(item => [item.id, item])).values()]);
+      setPage(targetPage);
+      setHasMore(Boolean(data.hasMore));
+      setIsSmartSearch(Boolean(data.smartSearch));
+      if (search.query) activeSearch.current = { ...search, mode: data.mode || search.mode };
+    } catch (error) {
+      if (!controller.signal.aborted) setError(error.message);
+    } finally {
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/api/immich/config')
-      .then(res => res.json())
-      .then(cfg => {
-        if (cfg.videoMode) setVideoMode(cfg.videoMode);
-        if (!cfg.hasApiKey) {
-          setShowSettings(true);
-        } else {
-          loadTimeline(1, true);
-        }
+    const controller = new AbortController();
+    setQuery('');
+    setSelectedAssets(new Map());
+    setPreviewAsset(null);
+    setLoading(true);
+    fetch('/api/immich/config', { signal: controller.signal })
+      .then(async res => {
+        const config = await res.json();
+        if (!res.ok) throw new Error(config.error || '无法读取配置');
+        if (controller.signal.aborted) return;
+        setVideoMode(config.videoMode || 'direct');
+        setShowSettings(!config.hasApiKey);
+        if (config.hasApiKey) loadAssets(1, true, { query: '', mode: 'auto' });
+        else setLoading(false);
       })
-      .catch(() => setShowSettings(true));
+      .catch(error => { if (!controller.signal.aborted) { setError(error.message); setShowSettings(true); setLoading(false); } });
+    return () => {
+      controller.abort();
+      requestRef.current?.abort();
+      requestRef.current = null;
+      submitRef.current?.abort();
+    };
   }, [isOpen]);
 
-  const loadTimeline = async (targetPage = 1, reset = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/immich/timeline?page=${targetPage}&size=50`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '获取时间线失败');
-      setAssets(prev => reset ? (data.items || []) : [...prev, ...(data.items || [])]);
-      setPage(targetPage);
-      setHasMore(data.hasMore || false);
-      setIsSmartSearch(false);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = event => {
+      if (event.key === 'Escape') {
+        if (previewAsset) setPreviewAsset(null);
+        else if (!submittingRef.current) onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, previewAsset, onClose]);
+
+  useEffect(() => {
+    if (isOpen) return activateDialog(dialogRef.current);
+  }, [isOpen]);
+
+  const handleSearch = event => {
+    event?.preventDefault();
+    loadAssets(1, true, { query: query.trim(), mode: searchMode });
   };
 
-  const handleSearch = async (e) => {
-    if (e) e.preventDefault();
-    const q = query.trim();
-    if (!q) {
-      loadTimeline(1, true);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/immich/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, page: 1, size: 60 })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '搜索失败');
-      setAssets(data.items || []);
-      setPage(1);
-      setHasMore(data.hasMore || false);
-      setIsSmartSearch(data.smartSearch || false);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const toggleSelect = item => {
+    setSelectedAssets(previous => {
+      const next = new Map(previous);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.set(item.id, item);
       return next;
     });
   };
 
-  // 格式化时长（兼容 Immich 毫秒、秒及时分秒字符串）
-  const formatDuration = (val) => {
-    if (val === null || val === undefined || val === '') return '';
-
-    let totalSeconds = 0;
-    if (typeof val === 'number') {
-      // Immich 返回的 duration 字段为整数毫秒（如 9334 代表 9.33 秒）
-      if (Number.isInteger(val) && val > 200) {
-        totalSeconds = Math.round(val / 1000);
-      } else {
-        totalSeconds = Math.round(val);
-      }
-    } else if (typeof val === 'string') {
-      if (val.includes(':')) {
-        const parts = val.split(':').map(p => parseFloat(p) || 0);
-        if (parts.length === 3) {
-          totalSeconds = Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
-        } else if (parts.length === 2) {
-          totalSeconds = Math.round(parts[0] * 60 + parts[1]);
-        }
-      } else {
-        const num = parseFloat(val);
-        if (!Number.isNaN(num)) {
-          totalSeconds = (Number.isInteger(num) && num > 200) ? Math.round(num / 1000) : Math.round(num);
-        }
-      }
-    }
-
-    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '';
-
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
-
   // 添加选中的图片/视频到 DSH 会话输入框
   const handleAddToConversation = async () => {
-    if (selectedIds.size === 0 || submitting) return;
+    if (selectedAssets.size === 0 || submittingRef.current) return;
+    submittingRef.current = true;
+    const controller = new AbortController();
+    submitRef.current = controller;
     setSubmitting(true);
     setSubmitProgress('正在准备素材...');
 
     try {
-      const targetAssets = assets.filter(a => selectedIds.has(a.id));
+      validateTarget();
+      const targetAssets = [...selectedAssets.values()];
       const filesToInject = [];
 
       for (let i = 0; i < targetAssets.length; i++) {
+        controller.signal.throwIfAborted();
         const item = targetAssets[i];
         setSubmitProgress(`正在获取 (${i + 1}/${targetAssets.length}): ${item.originalFileName}...`);
 
         if (item.type === 'video') {
           if (videoMode === 'direct') {
             // 直传模式：下载原视频作为 File
-            const res = await fetch(`/api/immich/original?id=${item.id}`);
+            const res = await fetch(`/api/immich/original?id=${encodeURIComponent(item.id)}`, { signal: controller.signal });
             if (!res.ok) throw new Error(`获取视频失败: ${item.originalFileName}`);
             const blob = await res.blob();
             filesToInject.push(new File([blob], item.originalFileName, { type: blob.type || 'video/mp4' }));
@@ -165,6 +168,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
             // 切帧模式：调用切帧 API 抽取多张帧图片
             setSubmitProgress(`正在抽取视频帧: ${item.originalFileName}...`);
             const res = await fetch('/api/immich/convert-frames', {
+              signal: controller.signal,
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: item.id })
@@ -185,7 +189,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
           }
         } else {
           // 图片模式：获取原图
-          const res = await fetch(`/api/immich/original?id=${item.id}`);
+          const res = await fetch(`/api/immich/original?id=${encodeURIComponent(item.id)}`, { signal: controller.signal });
           if (!res.ok) throw new Error(`获取图片失败: ${item.originalFileName}`);
           const blob = await res.blob();
           filesToInject.push(new File([blob], item.originalFileName, { type: blob.type || 'image/jpeg' }));
@@ -194,34 +198,25 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
 
       setSubmitProgress('正在载入对话框输入区...');
 
-      // 寻找 DSH 会话输入框的文件上传 input 元素并注入
-      const fileInput = document.querySelector('input[type="file"][multiple]');
-      if (fileInput) {
-        const dt = new DataTransfer();
-        for (const f of filesToInject) {
-          dt.items.add(f);
-        }
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
-        throw new Error('未找到对话框输入框的文件接收通道，请确保位于会话页面。');
-      }
+      if (controller.signal.aborted) return;
+      onAttach(filesToInject);
 
       // 成功后关闭弹窗
       onClose();
     } catch (err) {
-      alert('添加到对话框失败：' + err.message);
+      if (!controller.signal.aborted) setError('添加到对话框失败：' + err.message);
     } finally {
-      setSubmitting(false);
-      setSubmitProgress('');
+      submittingRef.current = false;
+      if (!controller.signal.aborted) { setSubmitting(false); setSubmitProgress(''); }
+      submitRef.current = null;
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="dsh-immich-modal-backdrop" onClick={onClose}>
-      <div className="dsh-immich-modal-container" onClick={e => e.stopPropagation()}>
+    <div className="dsh-immich-modal-backdrop" onClick={() => { if (!submittingRef.current) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Immich 相册" aria-busy={submitting} className="dsh-immich-modal-container" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="dsh-immich-header">
           <div className="dsh-immich-title-box">
@@ -230,11 +225,17 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
           </div>
 
           {!showSettings && (
-            <form className="dsh-immich-search-bar" onSubmit={handleSearch}>
+            <form inert={submitting ? '' : undefined} className="dsh-immich-search-bar" onSubmit={handleSearch}>
               <span className="dsh-immich-search-icon">
                 {isSmartSearch ? <IconSparkles size={16} color="#818cf8" /> : <IconSearch size={16} />}
               </span>
+              <select aria-label="搜索方式" value={searchMode} onChange={event => setSearchMode(event.target.value)} style={{ background: 'transparent', color: 'inherit', maxWidth: 90 }}>
+                <option value="auto">自动</option>
+                <option value="smart">智能搜图</option>
+                <option value="filename">文件名</option>
+              </select>
               <input
+                aria-label="搜索 Immich 媒体"
                 type="text"
                 className="dsh-immich-search-input"
                 placeholder="按文件名搜索或自然语言搜图（CLIP 智能搜图）..."
@@ -242,7 +243,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
                 onChange={e => setQuery(e.target.value)}
               />
               {query && (
-                <button type="button" className="dsh-immich-search-clear" onClick={() => { setQuery(''); loadTimeline(1, true); }}>
+                <button type="button" className="dsh-immich-search-clear" onClick={() => { setQuery(''); loadAssets(1, true, { query: '', mode: 'auto' }); }}>
                   <IconClose size={14} />
                 </button>
               )}
@@ -254,14 +255,14 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
               <button
                 type="button"
                 className={`dsh-immich-video-mode-btn ${videoMode === 'direct' ? 'active' : ''}`}
-                onClick={() => setVideoMode('direct')}
+                disabled={submitting} onClick={() => setVideoMode('direct')}
               >
                 🚀 直传模型
               </button>
               <button
                 type="button"
                 className={`dsh-immich-video-mode-btn ${videoMode === 'frames' ? 'active' : ''}`}
-                onClick={() => setVideoMode('frames')}
+                disabled={submitting} onClick={() => setVideoMode('frames')}
               >
                 🎞️ 切帧多图
               </button>
@@ -272,12 +273,12 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
             type="button"
             className={`dsh-immich-icon-btn ${showSettings ? 'active' : ''}`}
             title="Immich 设置"
-            onClick={() => setShowSettings(!showSettings)}
+            disabled={submitting} onClick={() => { requestRef.current?.abort(); setShowSettings(!showSettings); }}
           >
             <IconSettings size={18} />
           </button>
 
-          <button type="button" className="dsh-immich-icon-btn" onClick={onClose} title="关闭">
+          <button type="button" className="dsh-immich-icon-btn" disabled={submitting} onClick={onClose} title="关闭" aria-label="关闭相册">
             <IconClose size={18} />
           </button>
         </div>
@@ -287,15 +288,18 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
           {showSettings ? (
             <ImmichSettingsView
               standalone={false}
-              onSaved={() => {
-                setShowSettings(false);
-                loadTimeline(1, true);
+              onSaved={config => {
+                setVideoMode(config.videoMode);
+                setSelectedAssets(new Map());
+                setQuery('');
+                setShowSettings(!config.hasApiKey);
+                if (config.hasApiKey) loadAssets(1, true, { query: '', mode: 'auto' });
               }}
             />
           ) : (
             <>
               {error && (
-                <div style={{
+                <div role="alert" style={{
                   padding: '16px',
                   borderRadius: '8px',
                   background: 'rgba(239, 68, 68, 0.12)',
@@ -326,26 +330,26 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
 
               <div className="dsh-immich-grid">
                 {assets.map(item => {
-                  const isSelected = selectedIds.has(item.id);
+                  const isSelected = selectedAssets.has(item.id);
                   const isVideo = item.type === 'video';
                   return (
                     <div
                       key={item.id}
                       className={`dsh-immich-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => toggleSelect(item.id)}
+                      onClick={() => { if (!submitting) toggleSelect(item); }}
                       onDoubleClick={() => setPreviewAsset(item)}
                       title={`${item.originalFileName} (双击预览)`}
                     >
                       <img
                         className="dsh-immich-thumb"
-                        src={`/api/immich/thumbnail?id=${item.id}&size=thumbnail`}
+                        src={`/api/immich/thumbnail?id=${encodeURIComponent(item.id)}&size=thumbnail`}
                         alt={item.originalFileName}
                         loading="lazy"
                       />
 
-                      <div className="dsh-immich-check">
+                      <button type="button" className="dsh-immich-check" disabled={submitting} aria-label={`选择 ${item.originalFileName}`} aria-pressed={isSelected} onClick={event => { event.stopPropagation(); toggleSelect(item); }}>
                         {isSelected && <IconCheck size={14} color="#fff" />}
-                      </div>
+                      </button>
 
                       {isVideo && (
                         <div className="dsh-immich-badge">
@@ -354,7 +358,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
                         </div>
                       )}
 
-                      <div
+                      <button type="button" aria-label={`预览 ${item.originalFileName}`}
                         className="dsh-immich-card-zoom"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -363,7 +367,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
                         title="大图全屏预览"
                       >
                         <IconZoomIn size={14} />
-                      </div>
+                      </button>
                     </div>
                   );
                 })}
@@ -374,7 +378,7 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
                   <button
                     type="button"
                     className="dsh-immich-btn-secondary"
-                    onClick={() => loadTimeline(page + 1)}
+                    disabled={submitting} onClick={() => loadAssets(page + 1)}
                   >
                     加载更多媒体...
                   </button>
@@ -395,13 +399,13 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
           <div className="dsh-immich-footer">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '13px' }}>
-                已选 <strong>{selectedIds.size}</strong> 项
+                已选 <strong>{selectedAssets.size}</strong> 项
               </span>
-              {selectedIds.size > 0 && (
+              {selectedAssets.size > 0 && (
                 <button
                   type="button"
                   style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: '12px' }}
-                  onClick={() => setSelectedIds(new Set())}
+                  disabled={submitting} onClick={() => setSelectedAssets(new Map())}
                 >
                   清空已选
                 </button>
@@ -415,18 +419,17 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
               <button
                 type="button"
                 className="dsh-immich-btn-secondary"
-                onClick={onClose}
-                disabled={submitting}
+                onClick={() => { submitRef.current?.abort(); onClose(); }}
               >
-                取消
+                {submitting ? '取消添加' : '取消'}
               </button>
               <button
                 type="button"
                 className="dsh-immich-btn-primary"
-                disabled={selectedIds.size === 0 || submitting}
+                disabled={selectedAssets.size === 0 || submitting}
                 onClick={handleAddToConversation}
               >
-                {submitting ? '添加中...' : `添加到对话 (${selectedIds.size})`}
+                {submitting ? '添加中...' : `添加到对话 (${selectedAssets.size})`}
               </button>
             </div>
           </div>
