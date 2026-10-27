@@ -1,0 +1,37 @@
+name: Immich plugin
+
+on:
+  pull_request:
+    paths:
+      - 'dsh-plugin-immich/**'
+      - '.github/workflows/immich.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'dsh-plugin-immich/**'
+      - '.github/workflows/immich.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dsh-plugin-immich
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: dsh-plugin-immich/package-lock.json
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify committed build output
+        run: git diff --exit-code -- lib
+      - run: npm pack --dry-run

@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-immich",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "从内网 Immich 获取图片与视频并添加到 DSH 对话框，支持相册瀑布流预览、搜索、多选，以及视频直传与多帧切片模式切换",
   "type": "module",
   "main": "./lib/index.mjs",
@@ -16,8 +16,8 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20",
-    "dsh": ">=0.2.0-rc.2 <1"
+    "node": ">=24.9.0",
+    "dsh": "0.2.1-rc.2 || 0.2.1-rc.3"
   },
   "keywords": [
     "dsh",
@@ -38,16 +38,28 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-client-ui-slots",
-        "@deepseek-ai/dsh-client-ui-commands"
+        "@deepseek-ai/dsh-client-ui-commands",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings"
       ]
     }
   },
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs && vitest run",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccawmiku/dsh-plugins.git",
+    "directory": "dsh-plugin-immich"
   }
 }
