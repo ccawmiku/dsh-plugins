@@ -100,12 +100,44 @@ export function ImmichGalleryModal({ isOpen, onClose }) {
     });
   };
 
-  // 格式化时长
-  const formatDuration = (sec) => {
-    if (!sec) return '';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  // 格式化时长（兼容 Immich 毫秒、秒及时分秒字符串）
+  const formatDuration = (val) => {
+    if (val === null || val === undefined || val === '') return '';
+
+    let totalSeconds = 0;
+    if (typeof val === 'number') {
+      // Immich 返回的 duration 字段为整数毫秒（如 9334 代表 9.33 秒）
+      if (Number.isInteger(val) && val > 200) {
+        totalSeconds = Math.round(val / 1000);
+      } else {
+        totalSeconds = Math.round(val);
+      }
+    } else if (typeof val === 'string') {
+      if (val.includes(':')) {
+        const parts = val.split(':').map(p => parseFloat(p) || 0);
+        if (parts.length === 3) {
+          totalSeconds = Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+        } else if (parts.length === 2) {
+          totalSeconds = Math.round(parts[0] * 60 + parts[1]);
+        }
+      } else {
+        const num = parseFloat(val);
+        if (!Number.isNaN(num)) {
+          totalSeconds = (Number.isInteger(num) && num > 200) ? Math.round(num / 1000) : Math.round(num);
+        }
+      }
+    }
+
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '';
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
   // 添加选中的图片/视频到 DSH 会话输入框

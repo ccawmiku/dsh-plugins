@@ -50,8 +50,8 @@
 
 1. 克隆或下载本仓库到本地目录，例如：
    ```bash
-   git clone https://github.com/ccawmiku/dsh-plugins.git
-   cd dsh-plugins/dsh-plugin-immich
+   git clone https://github.com/<your-username>/dsh-plugin-immich.git
+   cd dsh-plugin-immich
    npm install
    npm run build
    ```

@@ -687,11 +687,38 @@ function ImmichGalleryModal({ isOpen, onClose }) {
       return next;
     });
   };
-  const formatDuration = (sec) => {
-    if (!sec) return "";
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
+  const formatDuration = (val) => {
+    if (val === null || val === void 0 || val === "") return "";
+    let totalSeconds = 0;
+    if (typeof val === "number") {
+      if (Number.isInteger(val) && val > 200) {
+        totalSeconds = Math.round(val / 1e3);
+      } else {
+        totalSeconds = Math.round(val);
+      }
+    } else if (typeof val === "string") {
+      if (val.includes(":")) {
+        const parts = val.split(":").map((p) => parseFloat(p) || 0);
+        if (parts.length === 3) {
+          totalSeconds = Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+        } else if (parts.length === 2) {
+          totalSeconds = Math.round(parts[0] * 60 + parts[1]);
+        }
+      } else {
+        const num = parseFloat(val);
+        if (!Number.isNaN(num)) {
+          totalSeconds = Number.isInteger(num) && num > 200 ? Math.round(num / 1e3) : Math.round(num);
+        }
+      }
+    }
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "";
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor(totalSeconds % 3600 / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
   const handleAddToConversation = async () => {
     if (selectedIds.size === 0 || submitting) return;
