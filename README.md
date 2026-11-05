@@ -6,6 +6,6 @@
 - [dsh-plugin-immich](dsh-plugin-immich/README.md)
 - [dsh-video-input：多视频直传与自动抽帧](dsh-video-input/README.md)
 - [dsh-progress-commentary：聊天进度说明](dsh-progress-commentary/README.md)
-- [dsh-reasoning-translation：公开思考翻译](dsh-reasoning-translation/README.md)
+
 
 
